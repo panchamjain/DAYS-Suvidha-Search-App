@@ -108,6 +108,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onSelectSuggestion }) =
       ]}>
         <MaterialCommunityIcons name="magnify" size={24} color={COLORS.primary} />
         <TextInput
+          // @ts-ignore
           ref={inputRef}
           style={styles.input}
           placeholder="Search categories, merchants, locations..."
@@ -115,7 +116,10 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onSelectSuggestion }) =
           value={query}
           onChangeText={setQuery}
           onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
+          onBlur={() => {
+            // Delay blur to allow for suggestion selection
+            setTimeout(() => setIsFocused(false), 200);
+          }}
           returnKeyType="search"
           onSubmitEditing={handleSearch}
         />
@@ -158,6 +162,7 @@ const styles = StyleSheet.create({
     paddingVertical: SIZES.base,
     marginBottom: SIZES.base,
     ...SHADOWS.light,
+    height: 56,
   },
   searchContainerFocused: {
     borderColor: COLORS.primary,
@@ -171,6 +176,7 @@ const styles = StyleSheet.create({
     color: COLORS.text.primary,
     marginLeft: SIZES.base,
     paddingVertical: SIZES.base,
+    height: 40,
   },
   clearButton: {
     padding: 4,
@@ -181,6 +187,8 @@ const styles = StyleSheet.create({
     paddingVertical: SIZES.base,
     borderRadius: SIZES.radius,
     marginLeft: SIZES.base,
+    height: 40,
+    justifyContent: 'center',
   },
   searchButtonText: {
     ...FONTS.medium,
@@ -193,6 +201,11 @@ const styles = StyleSheet.create({
     marginTop: -SIZES.base,
     overflow: 'hidden',
     ...SHADOWS.medium,
+    position: 'absolute',
+    top: 60,
+    left: 0,
+    right: 0,
+    zIndex: 20,
   },
   suggestionItem: {
     flexDirection: 'row',

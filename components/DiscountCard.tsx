@@ -1,5 +1,5 @@
-import React from 'react';
-import { StyleSheet, View, Text } from 'react-native';
+import * as React from 'react';
+import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS, FONTS, SHADOWS, SIZES } from '../constants/theme';
 import { Discount } from '../data/mockData';
@@ -18,7 +18,10 @@ const DiscountCard: React.FC<DiscountCardProps> = ({ discount }) => {
         </View>
         <View style={styles.titleContainer}>
           <Text style={styles.title}>{discount.title}</Text>
-          <Text style={styles.validUntil}>Valid until {discount.validUntil}</Text>
+          <View style={styles.validContainer}>
+            <MaterialCommunityIcons name="calendar-range" size={14} color={COLORS.text.tertiary} />
+            <Text style={styles.validUntil}>Valid until {discount.validUntil}</Text>
+          </View>
         </View>
       </View>
       
@@ -32,6 +35,11 @@ const DiscountCard: React.FC<DiscountCardProps> = ({ discount }) => {
           <Text style={styles.terms}>{discount.terms}</Text>
         </View>
       )}
+      
+      <TouchableOpacity style={styles.useButton}>
+        <Text style={styles.useButtonText}>Use Discount</Text>
+        <MaterialCommunityIcons name="arrow-right" size={16} color={COLORS.white} style={{ marginLeft: 4 }} />
+      </TouchableOpacity>
     </View>
   );
 };
@@ -39,11 +47,13 @@ const DiscountCard: React.FC<DiscountCardProps> = ({ discount }) => {
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    backgroundColor: COLORS.discount.background,
+    backgroundColor: COLORS.white,
     borderRadius: SIZES.radius,
     padding: SIZES.padding,
     marginBottom: SIZES.padding,
-    ...SHADOWS.light,
+    ...SHADOWS.medium,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.tertiary,
   },
   header: {
     flexDirection: 'row',
@@ -75,13 +85,18 @@ const styles = StyleSheet.create({
   title: {
     ...FONTS.bold,
     fontSize: SIZES.medium,
-    color: COLORS.discount.text,
+    color: COLORS.text.primary,
+    marginBottom: 4,
+  },
+  validContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   validUntil: {
     ...FONTS.regular,
     fontSize: SIZES.small,
     color: COLORS.text.tertiary,
-    marginTop: 2,
+    marginLeft: 4,
   },
   divider: {
     height: 1,
@@ -93,10 +108,15 @@ const styles = StyleSheet.create({
     fontSize: SIZES.font,
     color: COLORS.text.secondary,
     marginBottom: SIZES.padding,
+    lineHeight: 20,
   },
   termsContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    backgroundColor: COLORS.lightGray,
+    padding: SIZES.base,
+    borderRadius: SIZES.base,
+    marginBottom: SIZES.padding,
   },
   terms: {
     ...FONTS.regular,
@@ -104,6 +124,19 @@ const styles = StyleSheet.create({
     color: COLORS.text.tertiary,
     marginLeft: 4,
     flex: 1,
+  },
+  useButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primary,
+    paddingVertical: SIZES.base,
+    borderRadius: SIZES.radius,
+  },
+  useButtonText: {
+    ...FONTS.medium,
+    fontSize: SIZES.font,
+    color: COLORS.white,
   },
 });
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import * as React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Linking } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS, FONTS, SHADOWS, SIZES } from '../constants/theme';
@@ -29,48 +29,62 @@ const LocationCard: React.FC<LocationCardProps> = ({ location, onViewMap }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <MaterialCommunityIcons name="map-marker" size={24} color={COLORS.primary} />
-        <Text style={styles.area}>{location.area}</Text>
+        <View style={styles.headerLeft}>
+          <MaterialCommunityIcons name="map-marker" size={24} color={COLORS.primary} />
+          <Text style={styles.area}>{location.area}</Text>
+        </View>
+        {location.timings && (
+          <View style={styles.timingsContainer}>
+            <MaterialCommunityIcons name="clock-outline" size={16} color={COLORS.text.tertiary} />
+            <Text style={styles.timings}>{location.timings}</Text>
+          </View>
+        )}
       </View>
       
       <Text style={styles.address}>
         {location.address}, {location.city}, {location.state} - {location.pincode}
       </Text>
       
-      {location.timings && (
-        <View style={styles.timingsContainer}>
-          <MaterialCommunityIcons name="clock-outline" size={16} color={COLORS.text.tertiary} />
-          <Text style={styles.timings}>{location.timings}</Text>
-        </View>
-      )}
-      
       <View style={styles.divider} />
       
       <View style={styles.actionsContainer}>
         <TouchableOpacity style={styles.actionButton} onPress={handleCall}>
-          <MaterialCommunityIcons name="phone" size={20} color={COLORS.primary} />
+          <View style={[styles.actionIcon, { backgroundColor: 'rgba(25, 118, 210, 0.1)' }]}>
+            <MaterialCommunityIcons name="phone" size={20} color={COLORS.primary} />
+          </View>
           <Text style={styles.actionText}>Call</Text>
         </TouchableOpacity>
         
         {location.email && (
           <TouchableOpacity style={styles.actionButton} onPress={handleEmail}>
-            <MaterialCommunityIcons name="email-outline" size={20} color={COLORS.primary} />
+            <View style={[styles.actionIcon, { backgroundColor: 'rgba(67, 160, 71, 0.1)' }]}>
+              <MaterialCommunityIcons name="email-outline" size={20} color={COLORS.tertiary} />
+            </View>
             <Text style={styles.actionText}>Email</Text>
           </TouchableOpacity>
         )}
         
         {location.website && (
           <TouchableOpacity style={styles.actionButton} onPress={handleWebsite}>
-            <MaterialCommunityIcons name="web" size={20} color={COLORS.primary} />
+            <View style={[styles.actionIcon, { backgroundColor: 'rgba(255, 109, 0, 0.1)' }]}>
+              <MaterialCommunityIcons name="web" size={20} color={COLORS.secondary} />
+            </View>
             <Text style={styles.actionText}>Website</Text>
           </TouchableOpacity>
         )}
         
         <TouchableOpacity style={styles.actionButton} onPress={onViewMap}>
-          <MaterialCommunityIcons name="map" size={20} color={COLORS.primary} />
+          <View style={[styles.actionIcon, { backgroundColor: 'rgba(229, 57, 53, 0.1)' }]}>
+            <MaterialCommunityIcons name="map" size={20} color={COLORS.error} />
+          </View>
           <Text style={styles.actionText}>Map</Text>
         </TouchableOpacity>
       </View>
+      
+      <TouchableOpacity style={styles.directionsButton} onPress={onViewMap}>
+        <MaterialCommunityIcons name="directions" size={18} color={COLORS.white} />
+        <Text style={styles.directionsText}>Get Directions</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -82,12 +96,17 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radius,
     padding: SIZES.padding,
     marginBottom: SIZES.padding,
-    ...SHADOWS.light,
+    ...SHADOWS.medium,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: SIZES.base,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   area: {
     ...FONTS.bold,
@@ -100,11 +119,15 @@ const styles = StyleSheet.create({
     fontSize: SIZES.font,
     color: COLORS.text.secondary,
     marginBottom: SIZES.base,
+    lineHeight: 20,
   },
   timingsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: SIZES.base,
+    backgroundColor: COLORS.lightGray,
+    paddingHorizontal: SIZES.base,
+    paddingVertical: 4,
+    borderRadius: SIZES.base,
   },
   timings: {
     ...FONTS.regular,
@@ -121,16 +144,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: SIZES.base,
+    marginBottom: SIZES.padding,
   },
   actionButton: {
     alignItems: 'center',
-    padding: SIZES.base,
+  },
+  actionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   actionText: {
     ...FONTS.medium,
     fontSize: SIZES.small,
-    color: COLORS.primary,
-    marginTop: 2,
+    color: COLORS.text.secondary,
+  },
+  directionsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primary,
+    paddingVertical: SIZES.base,
+    borderRadius: SIZES.radius,
+  },
+  directionsText: {
+    ...FONTS.medium,
+    fontSize: SIZES.font,
+    color: COLORS.white,
+    marginLeft: SIZES.base,
   },
 });
 

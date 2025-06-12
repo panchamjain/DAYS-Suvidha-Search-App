@@ -1,4 +1,4 @@
-import React from 'react';
+import * as React from 'react';
 import { StyleSheet, TouchableOpacity, View, Text, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS, FONTS, SHADOWS, SIZES } from '../constants/theme';
@@ -72,11 +72,11 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.padding,
     overflow: 'hidden',
     flexDirection: 'row',
-    ...SHADOWS.light,
+    ...SHADOWS.medium,
   },
   imageContainer: {
-    width: 100,
-    height: 100,
+    width: 110,
+    height: 110,
     position: 'relative',
   },
   image: {
@@ -107,17 +107,19 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: SIZES.base,
+    padding: SIZES.padding,
+    justifyContent: 'center',
   },
   title: {
     ...FONTS.bold,
     fontSize: SIZES.medium,
     color: COLORS.text.primary,
+    marginBottom: 4,
   },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
+    marginBottom: 6,
   },
   rating: {
     ...FONTS.medium,
@@ -135,12 +137,12 @@ const styles = StyleSheet.create({
     ...FONTS.regular,
     fontSize: SIZES.small,
     color: COLORS.text.secondary,
-    marginTop: 4,
+    marginBottom: 6,
+    lineHeight: 18,
   },
   locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
   },
   location: {
     ...FONTS.regular,

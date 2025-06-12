@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -7,10 +7,12 @@ import {
   TouchableOpacity, 
   Image,
   SafeAreaView,
-  StatusBar
+  StatusBar,
+  Animated,
+  Share
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { COLORS, FONTS, SIZES } from '../constants/theme';
+import { COLORS, FONTS, SIZES, SHADOWS } from '../constants/theme';
 import { getMerchantById } from '../data/mockData';
 import DiscountCard from '../components/DiscountCard';
 import LocationCard from '../components/LocationCard';
@@ -19,6 +21,7 @@ const MerchantDetailsScreen = ({ route, navigation }: any) => {
   const { merchantId } = route.params;
   const merchant = getMerchantById(merchantId);
   const [activeTab, setActiveTab] = useState('discounts');
+  const scrollY = useRef(new Animated.Value(0)).current;
   
   if (!merchant) {
     return (
@@ -43,6 +46,29 @@ const MerchantDetailsScreen = ({ route, navigation }: any) => {
     });
   };
   
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        message: `Check out ${merchant.name} on DAYS Suvidha Card! They offer up to ${Math.max(...merchant.discounts.map(d => d.percentage))}% discount.`,
+      });
+    } catch (error) {
+      console.log(error);
+    }
+  };
+  
+  // Header animation
+  const headerHeight = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [0, -50],
+    extrapolate: 'clamp',
+  });
+  
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 60, 90],
+    outputRange: [1, 0.3, 0],
+    extrapolate: 'clamp',
+  });
+  
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
@@ -55,46 +81,61 @@ const MerchantDetailsScreen = ({ route, navigation }: any) => {
           <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{merchant.name}</Text>
-        <TouchableOpacity style={styles.shareButton}>
+        <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
           <MaterialCommunityIcons name="share-variant" size={24} color={COLORS.white} />
         </TouchableOpacity>
       </View>
       
-      <ScrollView 
+      <Animated.ScrollView 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
       >
-        <View style={styles.merchantInfoContainer}>
-          <View style={styles.merchantHeader}>
-            {merchant.image ? (
-              <Image source={merchant.image} style={styles.merchantImage} />
-            ) : (
-              <View style={styles.merchantImagePlaceholder}>
-                <MaterialCommunityIcons 
-                  name={merchant.category === 'Restaurants' ? 'food' : 
-                        merchant.category === 'Healthcare' ? 'hospital' :
-                        merchant.category === 'Shopping' ? 'shopping' :
-                        merchant.category === 'Entertainment' ? 'movie' : 'school'} 
-                  size={40} 
-                  color={COLORS.primary} 
-                />
-              </View>
-            )}
-            
-            <View style={styles.merchantDetails}>
-              <Text style={styles.merchantName}>{merchant.name}</Text>
-              <Text style={styles.merchantCategory}>{merchant.category}</Text>
+        <Animated.View 
+          style={[
+            styles.merchantHeaderContainer,
+            {
+              transform: [{ translateY: headerHeight }],
+              opacity: headerOpacity,
+            }
+          ]}
+        >
+          <View style={styles.merchantInfoContainer}>
+            <View style={styles.merchantHeader}>
+              {merchant.image ? (
+                <Image source={merchant.image} style={styles.merchantImage} />
+              ) : (
+                <View style={styles.merchantImagePlaceholder}>
+                  <MaterialCommunityIcons 
+                    name={merchant.category === 'Restaurants' ? 'food' : 
+                          merchant.category === 'Healthcare' ? 'hospital' :
+                          merchant.category === 'Shopping' ? 'shopping' :
+                          merchant.category === 'Entertainment' ? 'movie' : 'school'} 
+                    size={40} 
+                    color={COLORS.primary} 
+                  />
+                </View>
+              )}
               
-              <View style={styles.ratingContainer}>
-                <MaterialCommunityIcons name="star" size={18} color={COLORS.secondary} />
-                <Text style={styles.rating}>{merchant.rating.toFixed(1)}</Text>
-                <Text style={styles.reviews}>({merchant.reviews} reviews)</Text>
+              <View style={styles.merchantDetails}>
+                <Text style={styles.merchantName}>{merchant.name}</Text>
+                <Text style={styles.merchantCategory}>{merchant.category}</Text>
+                
+                <View style={styles.ratingContainer}>
+                  <MaterialCommunityIcons name="star" size={18} color={COLORS.secondary} />
+                  <Text style={styles.rating}>{merchant.rating.toFixed(1)}</Text>
+                  <Text style={styles.reviews}>({merchant.reviews} reviews)</Text>
+                </View>
               </View>
             </View>
+            
+            <Text style={styles.merchantDescription}>{merchant.description}</Text>
           </View>
-          
-          <Text style={styles.merchantDescription}>{merchant.description}</Text>
-        </View>
+        </Animated.View>
         
         <View style={styles.tabsContainer}>
           <TouchableOpacity 
@@ -163,7 +204,7 @@ const MerchantDetailsScreen = ({ route, navigation }: any) => {
             </View>
           )}
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
     </SafeAreaView>
   );
 };
@@ -180,6 +221,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingHorizontal: SIZES.padding,
     paddingVertical: SIZES.padding,
+    zIndex: 10,
   },
   headerTitle: {
     ...FONTS.bold,
@@ -197,10 +239,17 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 100,
   },
+  merchantHeaderContainer: {
+    backgroundColor: COLORS.primary,
+    paddingBottom: SIZES.padding,
+  },
   merchantInfoContainer: {
     backgroundColor: COLORS.white,
+    borderTopLeftRadius: SIZES.radius,
+    borderTopRightRadius: SIZES.radius,
     padding: SIZES.padding,
-    marginBottom: SIZES.padding,
+    marginTop: SIZES.padding,
+    ...SHADOWS.medium,
   },
   merchantHeader: {
     flexDirection: 'row',
@@ -263,6 +312,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: COLORS.white,
     marginBottom: SIZES.padding,
+    ...SHADOWS.light,
   },
   tab: {
     flex: 1,

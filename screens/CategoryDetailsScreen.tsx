@@ -1,4 +1,4 @@
-import React from 'react';
+import * as React from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -7,10 +7,12 @@ import {
   TouchableOpacity, 
   Image,
   SafeAreaView,
-  StatusBar
+  StatusBar,
+  Animated
 } from 'react-native';
+import { useRef } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { COLORS, FONTS, SIZES } from '../constants/theme';
+import { COLORS, FONTS, SIZES, SHADOWS } from '../constants/theme';
 import { getCategoryById, getMerchantsByCategory } from '../data/mockData';
 import MerchantCard from '../components/MerchantCard';
 
@@ -18,6 +20,7 @@ const CategoryDetailsScreen = ({ route, navigation }: any) => {
   const { categoryId } = route.params;
   const category = getCategoryById(categoryId);
   const merchants = getMerchantsByCategory(categoryId);
+  const scrollY = useRef(new Animated.Value(0)).current;
   
   if (!category) {
     return (
@@ -35,6 +38,19 @@ const CategoryDetailsScreen = ({ route, navigation }: any) => {
     );
   }
   
+  // Banner animation
+  const bannerHeight = scrollY.interpolate({
+    inputRange: [0, 180],
+    outputRange: [180, 90],
+    extrapolate: 'clamp',
+  });
+  
+  const bannerOpacity = scrollY.interpolate({
+    inputRange: [0, 140, 180],
+    outputRange: [1, 0.8, 0.6],
+    extrapolate: 'clamp',
+  });
+  
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
@@ -50,23 +66,42 @@ const CategoryDetailsScreen = ({ route, navigation }: any) => {
         <View style={{ width: 24 }} />
       </View>
       
-      <View style={styles.bannerContainer}>
+      <Animated.View 
+        style={[
+          styles.bannerContainer,
+          {
+            height: bannerHeight,
+            opacity: bannerOpacity,
+          }
+        ]}
+      >
         <Image source={category.image} style={styles.bannerImage} />
         <View style={styles.bannerOverlay} />
         <View style={styles.bannerContent}>
-          <MaterialCommunityIcons name={category.icon as any} size={40} color={COLORS.white} />
+          <View style={styles.iconContainer}>
+            <MaterialCommunityIcons name={category.icon as any} size={40} color={COLORS.white} />
+          </View>
           <Text style={styles.bannerTitle}>{category.name}</Text>
           <Text style={styles.bannerDescription}>{category.description}</Text>
         </View>
-      </View>
+      </Animated.View>
       
       <View style={styles.content}>
-        <Text style={styles.merchantsTitle}>
-          {merchants.length} {merchants.length === 1 ? 'Merchant' : 'Merchants'} Available
-        </Text>
+        <View style={styles.merchantsHeader}>
+          <Text style={styles.merchantsTitle}>
+            {merchants.length} {merchants.length === 1 ? 'Merchant' : 'Merchants'} Available
+          </Text>
+          
+          <View style={styles.filterContainer}>
+            <TouchableOpacity style={styles.filterButton}>
+              <MaterialCommunityIcons name="filter-variant" size={20} color={COLORS.primary} />
+              <Text style={styles.filterText}>Filter</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
         
         {merchants.length > 0 ? (
-          <FlatList
+          <Animated.FlatList
             data={merchants}
             renderItem={({ item }) => (
               <MerchantCard
@@ -77,6 +112,11 @@ const CategoryDetailsScreen = ({ route, navigation }: any) => {
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.merchantsList}
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+              { useNativeDriver: true }
+            )}
+            scrollEventThrottle={16}
           />
         ) : (
           <View style={styles.noMerchantsContainer}>
@@ -102,6 +142,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingHorizontal: SIZES.padding,
     paddingVertical: SIZES.padding,
+    zIndex: 10,
   },
   headerTitle: {
     ...FONTS.bold,
@@ -117,9 +158,9 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
   },
   bannerContainer: {
-    height: 180,
     width: '100%',
     position: 'relative',
+    overflow: 'hidden',
   },
   bannerImage: {
     width: '100%',
@@ -128,7 +169,7 @@ const styles = StyleSheet.create({
   },
   bannerOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   bannerContent: {
     position: 'absolute',
@@ -140,12 +181,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: SIZES.padding,
   },
+  iconContainer: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: SIZES.base,
+  },
   bannerTitle: {
     ...FONTS.bold,
     fontSize: SIZES.xxl,
     color: COLORS.white,
     marginTop: SIZES.base,
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   bannerDescription: {
     ...FONTS.regular,
@@ -154,19 +207,51 @@ const styles = StyleSheet.create({
     marginTop: SIZES.base,
     textAlign: 'center',
     opacity: 0.9,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   content: {
     flex: 1,
-    paddingHorizontal: SIZES.padding,
+    backgroundColor: COLORS.background,
+    borderTopLeftRadius: SIZES.radius,
+    borderTopRightRadius: SIZES.radius,
+    marginTop: -SIZES.radius,
     paddingTop: SIZES.padding,
+    zIndex: 5,
+  },
+  merchantsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SIZES.padding,
+    marginBottom: SIZES.padding,
   },
   merchantsTitle: {
     ...FONTS.bold,
     fontSize: SIZES.large,
     color: COLORS.text.primary,
-    marginBottom: SIZES.padding,
+  },
+  filterContainer: {
+    flexDirection: 'row',
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    paddingHorizontal: SIZES.padding,
+    paddingVertical: SIZES.base,
+    borderRadius: SIZES.radius,
+    ...SHADOWS.light,
+  },
+  filterText: {
+    ...FONTS.medium,
+    fontSize: SIZES.font,
+    color: COLORS.primary,
+    marginLeft: 4,
   },
   merchantsList: {
+    paddingHorizontal: SIZES.padding,
     paddingBottom: 100,
   },
   noMerchantsContainer: {

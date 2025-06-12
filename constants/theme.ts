@@ -1,30 +1,34 @@
 import { DefaultTheme } from 'react-native-paper';
 
-// DAYS Ahmedabad branding colors
+// DAYS Ahmedabad branding colors - Modern palette
 export const COLORS = {
-  primary: '#0056b3', // Primary blue
-  secondary: '#ff6b00', // Orange accent
-  tertiary: '#4CAF50', // Green for success/discounts
-  background: '#f8f9fa',
+  primary: '#1976D2', // Modern blue
+  secondary: '#FF6D00', // Vibrant orange
+  tertiary: '#43A047', // Fresh green for success/discounts
+  background: '#F5F7FA', // Light gray background
   white: '#FFFFFF',
   black: '#000000',
   gray: '#757575',
-  lightGray: '#f1f1f1',
-  error: '#FF4D4F',
+  lightGray: '#EEEEEE',
+  error: '#E53935',
   text: {
-    primary: '#333333',
-    secondary: '#757575',
+    primary: '#212121',
+    secondary: '#616161',
     tertiary: '#9E9E9E',
     white: '#FFFFFF',
   },
   card: {
     background: '#FFFFFF',
-    shadow: 'rgba(0, 0, 0, 0.1)',
+    shadow: 'rgba(0, 0, 0, 0.08)',
   },
   discount: {
     background: '#E8F5E9',
     text: '#2E7D32',
   },
+  gradient: {
+    primary: ['#1976D2', '#2196F3'],
+    secondary: ['#FF6D00', '#FF9800'],
+  }
 };
 
 export const SIZES = {

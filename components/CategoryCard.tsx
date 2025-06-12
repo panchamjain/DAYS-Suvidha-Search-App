@@ -1,4 +1,4 @@
-import React from 'react';
+import * as React from 'react';
 import { StyleSheet, TouchableOpacity, View, Text, Image, ImageSourcePropType } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS, FONTS, SHADOWS, SIZES } from '../constants/theme';
@@ -17,7 +17,9 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ name, icon, image, descript
       <Image source={image} style={styles.image} />
       <View style={styles.overlay} />
       <View style={styles.content}>
-        <MaterialCommunityIcons name={icon as any} size={32} color={COLORS.white} />
+        <View style={styles.iconContainer}>
+          <MaterialCommunityIcons name={icon as any} size={32} color={COLORS.white} />
+        </View>
         <Text style={styles.title}>{name}</Text>
         <Text style={styles.description} numberOfLines={2}>
           {description}
@@ -29,8 +31,8 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ name, icon, image, descript
 
 const styles = StyleSheet.create({
   container: {
-    width: '100%',
-    height: 160,
+    width: 280,
+    height: 180,
     borderRadius: SIZES.radius,
     marginBottom: SIZES.padding,
     overflow: 'hidden',
@@ -43,7 +45,8 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: SIZES.radius,
   },
   content: {
     position: 'absolute',
@@ -55,12 +58,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  iconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: SIZES.base,
+  },
   title: {
     ...FONTS.bold,
     fontSize: SIZES.extraLarge,
     color: COLORS.white,
     marginTop: SIZES.base,
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   description: {
     ...FONTS.regular,
@@ -69,6 +84,9 @@ const styles = StyleSheet.create({
     marginTop: SIZES.base,
     textAlign: 'center',
     opacity: 0.9,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 });
 

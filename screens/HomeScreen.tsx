@@ -8,14 +8,18 @@ import {
   FlatList, 
   TouchableOpacity,
   SafeAreaView,
-  StatusBar
+  StatusBar,
+  Dimensions
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { COLORS, FONTS, SIZES } from '../constants/theme';
+import { COLORS, FONTS, SIZES, SHADOWS } from '../constants/theme';
 import { categories, getPopularMerchants, searchMerchants } from '../data/mockData';
 import CategoryCard from '../components/CategoryCard';
 import MerchantCard from '../components/MerchantCard';
 import SearchBar from '../components/SearchBar';
+
+const { width } = Dimensions.get('window');
+const CARD_WIDTH = width * 0.75;
 
 const HomeScreen = ({ navigation }: any) => {
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -116,7 +120,7 @@ const HomeScreen = ({ navigation }: any) => {
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.categoriesList}
-              snapToInterval={280}
+              snapToInterval={CARD_WIDTH + SIZES.padding}
               decelerationRate="fast"
               ItemSeparatorComponent={() => <View style={{ width: SIZES.padding }} />}
             />
@@ -125,8 +129,12 @@ const HomeScreen = ({ navigation }: any) => {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Popular Merchants</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('AllMerchants')}>
+              <TouchableOpacity 
+                style={styles.viewAllButton}
+                onPress={() => navigation.navigate('AllMerchants')}
+              >
                 <Text style={styles.viewAllText}>View All</Text>
+                <MaterialCommunityIcons name="chevron-right" size={20} color={COLORS.primary} />
               </TouchableOpacity>
             </View>
             
@@ -148,6 +156,7 @@ const HomeScreen = ({ navigation }: any) => {
               </Text>
               <TouchableOpacity style={styles.learnMoreButton}>
                 <Text style={styles.learnMoreText}>Learn More</Text>
+                <MaterialCommunityIcons name="arrow-right" size={18} color={COLORS.white} style={{ marginLeft: 4 }} />
               </TouchableOpacity>
             </View>
           </View>
@@ -168,6 +177,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: SIZES.padding,
     paddingTop: SIZES.padding,
     paddingBottom: SIZES.base,
+    backgroundColor: COLORS.white,
+    ...SHADOWS.light,
   },
   logo: {
     width: 40,
@@ -182,14 +193,14 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     paddingHorizontal: SIZES.padding,
-    marginBottom: SIZES.base,
+    marginVertical: SIZES.padding,
     zIndex: 10,
   },
   scrollContent: {
     paddingBottom: 100,
   },
   section: {
-    marginTop: SIZES.padding,
+    marginBottom: SIZES.padding * 2,
     paddingHorizontal: SIZES.padding,
   },
   sectionHeader: {
@@ -204,6 +215,10 @@ const styles = StyleSheet.create({
     color: COLORS.text.primary,
     marginBottom: SIZES.padding,
   },
+  viewAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   viewAllText: {
     ...FONTS.medium,
     fontSize: SIZES.font,
@@ -216,6 +231,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     borderRadius: SIZES.radius,
     padding: SIZES.padding,
+    ...SHADOWS.medium,
   },
   aboutText: {
     ...FONTS.regular,
@@ -224,6 +240,8 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   learnMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     alignSelf: 'flex-start',
     marginTop: SIZES.padding,
     paddingVertical: SIZES.base,
