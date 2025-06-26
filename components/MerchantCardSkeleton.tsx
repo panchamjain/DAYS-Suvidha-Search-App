@@ -1,70 +1,109 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import ShimmerEffect from './ShimmerEffect';
 import Colors from '../constants/Colors';
 
 const MerchantCardSkeleton: React.FC = () => {
   return (
-    <View style={styles.container}>
-      <View style={styles.imageContainer}>
-        <ShimmerEffect width="100%" height="100%" borderRadius={0} />
+    <View style={styles.card}>
+      <View style={styles.cardContent}>
+        <View style={styles.leftSection}>
+          <ShimmerEffect width={56} height={56} borderRadius={16} />
+        </View>
+        
+        <View style={styles.middleSection}>
+          <View style={styles.header}>
+            <ShimmerEffect width="70%" height={16} borderRadius={8} />
+            <ShimmerEffect width={50} height={24} borderRadius={12} />
+          </View>
+          
+          <ShimmerEffect width="60%" height={24} borderRadius={12} style={styles.discountSkeleton} />
+          
+          <View style={styles.addressContainer}>
+            <ShimmerEffect width={14} height={14} borderRadius={7} />
+            <ShimmerEffect width="80%" height={12} borderRadius={6} style={{ marginLeft: 8 }} />
+          </View>
+
+          <View style={styles.branchInfo}>
+            <ShimmerEffect width={80} height={20} borderRadius={8} />
+            <ShimmerEffect width={60} height={16} borderRadius={8} />
+          </View>
+        </View>
       </View>
       
-      <View style={styles.content}>
-        <ShimmerEffect width="80%" height={16} borderRadius={8} style={styles.titleSkeleton} />
-        
-        <View style={styles.ratingContainer}>
-          <ShimmerEffect width={60} height={14} borderRadius={7} />
+      <View style={styles.cardFooter}>
+        <View style={styles.tagContainer}>
+          <ShimmerEffect width={60} height={24} borderRadius={8} />
+          <ShimmerEffect width={80} height={24} borderRadius={8} style={{ marginLeft: 8 }} />
         </View>
-        
-        <ShimmerEffect width="100%" height={12} borderRadius={6} style={styles.descriptionSkeleton} />
-        <ShimmerEffect width="70%" height={12} borderRadius={6} style={styles.descriptionSkeleton} />
-        
-        <View style={styles.locationContainer}>
-          <ShimmerEffect width={14} height={14} borderRadius={7} />
-          <ShimmerEffect width="60%" height={12} borderRadius={6} style={{ marginLeft: 8 }} />
-        </View>
+        <ShimmerEffect width={28} height={28} borderRadius={14} />
       </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    width: '100%',
+  card: {
     backgroundColor: Colors.card,
-    borderRadius: 12,
-    marginBottom: 16,
+    borderRadius: 16,
+    marginVertical: 8,
+    marginHorizontal: 16,
     overflow: 'hidden',
-    flexDirection: 'row',
-    shadowColor: Colors.cardShadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.cardShadow,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
-  imageContainer: {
-    width: 110,
-    height: 110,
-  },
-  content: {
-    flex: 1,
+  cardContent: {
     padding: 16,
-    justifyContent: 'center',
+    flexDirection: 'row',
   },
-  titleSkeleton: {
+  leftSection: {
+    marginRight: 16,
+  },
+  middleSection: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 8,
   },
-  ratingContainer: {
+  discountSkeleton: {
     marginBottom: 8,
+    alignSelf: 'flex-start',
   },
-  descriptionSkeleton: {
-    marginBottom: 4,
-  },
-  locationContainer: {
+  addressContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    marginBottom: 8,
+  },
+  branchInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    backgroundColor: `${Colors.background}50`,
+  },
+  tagContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });
 

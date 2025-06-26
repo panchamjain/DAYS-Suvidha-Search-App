@@ -120,6 +120,8 @@ const SearchBar: React.FC<SearchBarProps> = ({
 
   // Navigate based on URL or type
   const navigateToResult = (suggestion: SearchSuggestion) => {
+    console.log('Navigating to suggestion:', suggestion);
+    
     if (suggestion.url) {
       // Parse URL and navigate accordingly
       if (suggestion.url.includes('/category/')) {
@@ -141,7 +143,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
           const categorySlug = suggestion.data.slug || suggestion.data.id || suggestion.data.name?.toLowerCase().replace(/\s+/g, '-');
           (navigation as any).navigate('Category', {
             categoryId: categorySlug,
-            categoryName: suggestion.data.name,
+            categoryName: suggestion.data.name || suggestion.title,
           });
           break;
         case 'merchant':
@@ -168,32 +170,38 @@ const SearchBar: React.FC<SearchBarProps> = ({
       return;
     }
 
+    console.log('SearchBar: Starting search for:', query);
     setIsSearching(true);
 
     try {
       // Try API search first
       const apiResults = await searchService.search(query);
+      console.log('SearchBar: API search results:', apiResults);
       
       if (apiResults.results.length > 0) {
         // Use API results
         const apiSuggestions = apiResults.results
           .slice(0, 8)
           .map(convertSearchResult);
+        console.log('SearchBar: Converted API suggestions:', apiSuggestions);
         setSuggestions(apiSuggestions);
       } else {
         // Fallback to local search
+        console.log('SearchBar: No API results, falling back to local search');
         const localResults = fuse.search(query).slice(0, 8);
         const localSuggestions = localResults.map(result => result.item);
+        console.log('SearchBar: Local suggestions:', localSuggestions);
         setSuggestions(localSuggestions);
       }
       
       setShowSuggestions(true);
       animateDropdown(true);
     } catch (error) {
-      console.error('Search error:', error);
+      console.error('SearchBar: Search error:', error);
       // Fallback to local search on error
       const localResults = fuse.search(query).slice(0, 8);
       const localSuggestions = localResults.map(result => result.item);
+      console.log('SearchBar: Error fallback suggestions:', localSuggestions);
       setSuggestions(localSuggestions);
       setShowSuggestions(true);
       animateDropdown(true);
@@ -256,22 +264,25 @@ const SearchBar: React.FC<SearchBarProps> = ({
     }, 150);
   };
 
-  const renderSuggestion = ({ item }: { item: SearchSuggestion }) => (
-    <TouchableOpacity
-      style={styles.suggestionItem}
-      onPress={() => handleSuggestionPress(item)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.suggestionIcon}>
-        <MaterialIcons name={item.icon as any} size={20} color={Colors.primary} />
-      </View>
-      <View style={styles.suggestionContent}>
-        <Text style={styles.suggestionTitle}>{item.title}</Text>
-        <Text style={styles.suggestionSubtitle}>in {item.subtitle}</Text>
-      </View>
-      <MaterialIcons name="north-west" size={16} color={Colors.textLight} />
-    </TouchableOpacity>
-  );
+  const renderSuggestion = ({ item }: { item: SearchSuggestion }) => {
+    console.log('SearchBar: Rendering suggestion:', item);
+    return (
+      <TouchableOpacity
+        style={styles.suggestionItem}
+        onPress={() => handleSuggestionPress(item)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.suggestionIcon}>
+          <MaterialIcons name={item.icon as any} size={20} color={Colors.primary} />
+        </View>
+        <View style={styles.suggestionContent}>
+          <Text style={styles.suggestionTitle}>{item.title}</Text>
+          <Text style={styles.suggestionSubtitle}>{item.subtitle}</Text>
+        </View>
+        <MaterialIcons name="north-west" size={16} color={Colors.textLight} />
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>

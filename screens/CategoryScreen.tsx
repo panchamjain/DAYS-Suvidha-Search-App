@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, SafeAreaView, StatusBar } from 'react-native';
-import { useRoute, RouteProp } from '@react-navigation/native';
+import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import Header from '../components/Header';
 import MerchantCard from '../components/MerchantCard';
 import MerchantCardSkeleton from '../components/MerchantCardSkeleton';
@@ -14,6 +14,7 @@ type CategoryRouteParams = {
 };
 
 const CategoryScreen = () => {
+  const navigation = useNavigation();
   const route = useRoute<RouteProp<Record<string, CategoryRouteParams>, string>>();
   const { categoryId, categoryName } = route.params;
 
@@ -23,13 +24,15 @@ const CategoryScreen = () => {
 
   const merchants = merchantData?.results || [];
 
+  const handleMerchantPress = (merchant: any) => {
+    console.log('Merchant pressed:', merchant);
+    (navigation as any).navigate('MerchantDetail', { merchant });
+  };
+
   const renderMerchant = ({ item }: { item: any }) => (
     <MerchantCard
       merchant={item}
-      onPress={() => {
-        // Handle merchant press
-        console.log('Merchant pressed:', item);
-      }}
+      onPress={() => handleMerchantPress(item)}
     />
   );
 
@@ -117,8 +120,7 @@ const styles = StyleSheet.create({
     color: Colors.textLight,
   },
   listContent: {
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+    paddingVertical: 8,
     paddingBottom: 24,
   },
   errorContainer: {
