@@ -129,14 +129,7 @@ class SearchService {
     }
 
     // Extract title from various possible fields
-    const title = item.label || 
-                  item.title || 
-                  item.business_name || 
-                  item.merchant_name || 
-                  item.shop_name || 
-                  item.store_name ||
-                  item.category_name ||
-                  '';
+    const title = item.label || '';
     
     if (!title || title.trim() === '') {
       console.log('Skipping item without title:', item);
@@ -146,7 +139,7 @@ class SearchService {
     // Determine type and create appropriate subtitle
     let resultType: 'category' | 'merchant' | 'location' = 'merchant';
     let icon = 'store';
-    let subtitle = 'Search Result';
+    let subtitle = item.category_name;
     let url = item.url || item.link;
     
     // Determine type based on context or item properties
