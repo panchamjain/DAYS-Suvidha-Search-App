@@ -129,7 +129,7 @@ class SearchService {
     }
 
     // Extract title from various possible fields
-    const title = item.name || 
+    const title = item.label || 
                   item.title || 
                   item.business_name || 
                   item.merchant_name || 
