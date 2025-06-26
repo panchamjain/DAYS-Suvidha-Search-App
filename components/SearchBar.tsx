@@ -1,226 +1,374 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  StyleSheet, 
-  View, 
-  TextInput, 
-  TouchableOpacity, 
-  Text, 
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
   FlatList,
-  Keyboard,
   Animated,
-  Dimensions
+  Platform,
 } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { COLORS, FONTS, SHADOWS, SIZES } from '../constants/theme';
-import { searchSuggestions } from '../data/mockData';
+import { MaterialIcons } from '@expo/vector-icons';
+import Fuse from 'fuse.js';
+import Colors from '../constants/Colors';
+import { categories, merchants } from '../constants/MockData';
+import { searchService, SearchResult } from '../services/searchService';
+
+interface SearchSuggestion {
+  id: string;
+  title: string;
+  subtitle: string;
+  type: 'category' | 'merchant' | 'location' | 'discount';
+  data: any;
+  icon: string;
+}
 
 interface SearchBarProps {
-  onSearch: (query: string) => void;
-  onSelectSuggestion: (type: string, id: string) => void;
+  onSuggestionPress: (suggestion: SearchSuggestion) => void;
+  onSearchFocus?: () => void;
+  onSearchBlur?: () => void;
 }
 
-interface Suggestion {
-  type: string;
-  text: string;
-  id?: string;
-}
+const SearchBar: React.FC<SearchBarProps> = ({
+  onSuggestionPress,
+  onSearchFocus,
+  onSearchBlur,
+}) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
 
-const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onSelectSuggestion }) => {
-  const [query, setQuery] = useState('');
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [isFocused, setIsFocused] = useState(false);
   const animatedHeight = useRef(new Animated.Value(0)).current;
-  const inputRef = useRef<TextInput>(null);
-  
-  const screenHeight = Dimensions.get('window').height;
-  const maxSuggestionsHeight = screenHeight * 0.4; // 40% of screen height
-  
+  const searchInputRef = useRef<TextInput>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout>();
+
+  // Memoize local search data for fallback
+  const localSearchData = useMemo((): SearchSuggestion[] => [
+    // Categories
+    ...categories.map(category => ({
+      id: `category-${category.id}`,
+      title: category.name,
+      subtitle: 'Category',
+      type: 'category' as const,
+      data: category,
+      icon: category.icon,
+    })),
+    // Merchants
+    ...merchants.map(merchant => ({
+      id: `merchant-${merchant.id}`,
+      title: merchant.name,
+      subtitle: 'Merchant',
+      type: 'merchant' as const,
+      data: merchant,
+      icon: 'store',
+    })),
+    // Locations (extracted from merchant addresses)
+    ...Array.from(new Set(merchants.map(m => m.address?.split(',')[0]?.trim()).filter(Boolean)))
+      .map((location, index) => ({
+        id: `location-${index}`,
+        title: location!,
+        subtitle: 'Location',
+        type: 'location' as const,
+        data: { location },
+        icon: 'location-on',
+      })),
+    // Discounts
+    ...Array.from(new Set(merchants.map(m => m.discount).filter(Boolean)))
+      .map((discount, index) => ({
+        id: `discount-${index}`,
+        title: discount!,
+        subtitle: 'Discount',
+        type: 'discount' as const,
+        data: { discount },
+        icon: 'local-offer',
+      })),
+  ], []);
+
+  // Memoize Fuse.js instance for local search fallback
+  const fuse = useMemo(() => new Fuse(localSearchData, {
+    keys: ['title', 'subtitle'],
+    threshold: 0.4,
+    includeScore: true,
+    minMatchCharLength: 1,
+  }), [localSearchData]);
+
+  const animateDropdown = useCallback((show: boolean) => {
+    Animated.timing(animatedHeight, {
+      toValue: show ? 1 : 0,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+  }, [animatedHeight]);
+
+  // Convert SearchResult to SearchSuggestion
+  const convertSearchResult = (result: SearchResult): SearchSuggestion => ({
+    id: result.id,
+    title: result.title,
+    subtitle: result.subtitle,
+    type: result.type === 'location' ? 'location' : result.type,
+    data: result.data,
+    icon: result.icon,
+  });
+
+  // Search function with API integration
+  const performSearch = useCallback(async (query: string) => {
+    if (query.trim().length === 0) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      animateDropdown(false);
+      return;
+    }
+
+    setIsSearching(true);
+
+    try {
+      // Try API search first
+      const apiResults = await searchService.search(query);
+      
+      if (apiResults.results.length > 0) {
+        // Use API results
+        const apiSuggestions = apiResults.results
+          .slice(0, 8)
+          .map(convertSearchResult);
+        setSuggestions(apiSuggestions);
+      } else {
+        // Fallback to local search
+        const localResults = fuse.search(query).slice(0, 8);
+        const localSuggestions = localResults.map(result => result.item);
+        setSuggestions(localSuggestions);
+      }
+      
+      setShowSuggestions(true);
+      animateDropdown(true);
+    } catch (error) {
+      console.error('Search error:', error);
+      // Fallback to local search on error
+      const localResults = fuse.search(query).slice(0, 8);
+      const localSuggestions = localResults.map(result => result.item);
+      setSuggestions(localSuggestions);
+      setShowSuggestions(true);
+      animateDropdown(true);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [fuse, animateDropdown]);
+
+  // Debounced search
   useEffect(() => {
-    if (query.length > 0) {
-      const results = searchSuggestions(query);
-      setSuggestions(results);
-      
-      // Animate suggestions container height
-      Animated.timing(animatedHeight, {
-        toValue: Math.min(results.length * 50, maxSuggestionsHeight),
-        duration: 200,
-        useNativeDriver: false,
-      }).start();
-    } else {
-      setSuggestions([]);
-      
-      // Animate suggestions container height to 0
-      Animated.timing(animatedHeight, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: false,
-      }).start();
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
     }
-  }, [query]);
-  
-  const handleSearch = () => {
-    if (query.trim()) {
-      onSearch(query);
-      Keyboard.dismiss();
-      setIsFocused(false);
-    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      performSearch(searchQuery);
+    }, 300); // 300ms debounce
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery, performSearch]);
+
+  const handleSuggestionPress = (suggestion: SearchSuggestion) => {
+    setSearchQuery(suggestion.title);
+    setShowSuggestions(false);
+    animateDropdown(false);
+    searchInputRef.current?.blur();
+    onSuggestionPress(suggestion);
   };
-  
-  const handleSelectSuggestion = (suggestion: Suggestion) => {
-    if (suggestion.id) {
-      onSelectSuggestion(suggestion.type, suggestion.id);
-      setQuery('');
-      setSuggestions([]);
-      Keyboard.dismiss();
-      setIsFocused(false);
-    }
-  };
-  
-  const handleClear = () => {
-    setQuery('');
+
+  const clearSearch = () => {
+    setSearchQuery('');
     setSuggestions([]);
-    inputRef.current?.focus();
+    setShowSuggestions(false);
+    animateDropdown(false);
   };
-  
-  const renderSuggestionItem = ({ item }: { item: Suggestion }) => (
-    <TouchableOpacity 
-      style={styles.suggestionItem} 
-      onPress={() => handleSelectSuggestion(item)}
+
+  const handleFocus = () => {
+    onSearchFocus?.();
+    if (searchQuery.trim().length > 0) {
+      setShowSuggestions(true);
+      animateDropdown(true);
+    }
+  };
+
+  const handleBlur = () => {
+    onSearchBlur?.();
+    // Delay hiding suggestions to allow for suggestion tap
+    setTimeout(() => {
+      setShowSuggestions(false);
+      animateDropdown(false);
+    }, 150);
+  };
+
+  const renderSuggestion = ({ item }: { item: SearchSuggestion }) => (
+    <TouchableOpacity
+      style={styles.suggestionItem}
+      onPress={() => handleSuggestionPress(item)}
+      activeOpacity={0.7}
     >
-      <MaterialCommunityIcons 
-        name={
-          item.type === 'category' ? 'shape-outline' :
-          item.type === 'merchant' ? 'store' :
-          item.type === 'location' ? 'map-marker' : 'tag-outline'
-        } 
-        size={20} 
-        color={COLORS.primary} 
-      />
-      <Text style={styles.suggestionText}>{item.text}</Text>
+      <View style={styles.suggestionIcon}>
+        <MaterialIcons name={item.icon as any} size={20} color={Colors.primary} />
+      </View>
+      <View style={styles.suggestionContent}>
+        <Text style={styles.suggestionTitle}>{item.title}</Text>
+        <Text style={styles.suggestionSubtitle}>in {item.subtitle}</Text>
+      </View>
+      <MaterialIcons name="north-west" size={16} color={Colors.textLight} />
     </TouchableOpacity>
   );
-  
+
   return (
     <View style={styles.container}>
-      <View style={[
-        styles.searchContainer,
-        isFocused && styles.searchContainerFocused
-      ]}>
-        <MaterialCommunityIcons name="magnify" size={24} color={COLORS.primary} />
-        <TextInput
-          // @ts-ignore
-          ref={inputRef}
-          style={styles.input}
-          placeholder="Search categories, merchants, locations..."
-          placeholderTextColor={COLORS.text.tertiary}
-          value={query}
-          onChangeText={setQuery}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => {
-            // Delay blur to allow for suggestion selection
-            setTimeout(() => setIsFocused(false), 200);
-          }}
-          returnKeyType="search"
-          onSubmitEditing={handleSearch}
-        />
-        {query.length > 0 && (
-          <TouchableOpacity onPress={handleClear} style={styles.clearButton}>
-            <MaterialCommunityIcons name="close-circle" size={18} color={COLORS.text.tertiary} />
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity onPress={handleSearch} style={styles.searchButton}>
-          <Text style={styles.searchButtonText}>Search</Text>
-        </TouchableOpacity>
+      <View style={styles.searchContainer}>
+        <View style={styles.searchInputContainer}>
+          <MaterialIcons name="search" size={20} color={Colors.textLight} />
+          <TextInput
+            ref={searchInputRef}
+            style={styles.searchInput}
+            placeholder="Search categories, merchants, locations..."
+            placeholderTextColor={Colors.textLight}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            returnKeyType="search"
+          />
+          {isSearching && (
+            <View style={styles.loadingIndicator}>
+              <MaterialIcons name="hourglass-empty" size={16} color={Colors.textLight} />
+            </View>
+          )}
+          {searchQuery.length > 0 && !isSearching && (
+            <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+              <MaterialIcons name="close" size={20} color={Colors.textLight} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
-      
-      {isFocused && (
-        <Animated.View style={[styles.suggestionsContainer, { height: animatedHeight }]}>
+
+      {/* Suggestions Dropdown */}
+      <Animated.View
+        style={[
+          styles.suggestionsContainer,
+          {
+            maxHeight: animatedHeight.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 300],
+            }),
+            opacity: animatedHeight,
+          },
+        ]}
+      >
+        {showSuggestions && suggestions.length > 0 && (
           <FlatList
             data={suggestions}
-            renderItem={renderSuggestionItem}
-            keyExtractor={(item, index) => `suggestion-${index}`}
+            keyExtractor={(item) => item.id}
+            renderItem={renderSuggestion}
+            style={styles.suggestionsList}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           />
-        </Animated.View>
-      )}
+        )}
+      </Animated.View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    width: '100%',
-    zIndex: 10,
+    backgroundColor: Colors.background,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+    zIndex: 1000,
   },
   searchContainer: {
+    marginBottom: 8,
+  },
+  searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
-    borderRadius: SIZES.radius,
-    paddingHorizontal: SIZES.padding,
-    paddingVertical: SIZES.base,
-    marginBottom: SIZES.base,
-    ...SHADOWS.light,
-    height: 56,
+    backgroundColor: Colors.card,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.cardShadow,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
-  searchContainerFocused: {
-    borderColor: COLORS.primary,
-    borderWidth: 1,
-    ...SHADOWS.medium,
-  },
-  input: {
+  searchInput: {
     flex: 1,
-    ...FONTS.regular,
-    fontSize: SIZES.font,
-    color: COLORS.text.primary,
-    marginLeft: SIZES.base,
-    paddingVertical: SIZES.base,
-    height: 40,
+    fontSize: 16,
+    color: Colors.text,
+    marginLeft: 12,
+    marginRight: 8,
+  },
+  loadingIndicator: {
+    padding: 4,
   },
   clearButton: {
     padding: 4,
   },
-  searchButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: SIZES.padding,
-    paddingVertical: SIZES.base,
-    borderRadius: SIZES.radius,
-    marginLeft: SIZES.base,
-    height: 40,
-    justifyContent: 'center',
-  },
-  searchButtonText: {
-    ...FONTS.medium,
-    fontSize: SIZES.font,
-    color: COLORS.white,
-  },
   suggestionsContainer: {
-    backgroundColor: COLORS.white,
-    borderRadius: SIZES.radius,
-    marginTop: -SIZES.base,
+    backgroundColor: Colors.card,
+    borderRadius: 12,
     overflow: 'hidden',
-    ...SHADOWS.medium,
-    position: 'absolute',
-    top: 60,
-    left: 0,
-    right: 0,
-    zIndex: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.cardShadow,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  suggestionsList: {
+    maxHeight: 300,
   },
   suggestionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: SIZES.padding,
-    paddingVertical: SIZES.padding - 2,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
+    borderBottomColor: Colors.border,
   },
-  suggestionText: {
-    ...FONTS.regular,
-    fontSize: SIZES.font,
-    color: COLORS.text.primary,
-    marginLeft: SIZES.base,
+  suggestionIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: `${Colors.primary}10`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  suggestionContent: {
     flex: 1,
+  },
+  suggestionTitle: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: Colors.text,
+    marginBottom: 2,
+  },
+  suggestionSubtitle: {
+    fontSize: 13,
+    color: Colors.textLight,
   },
 });
 

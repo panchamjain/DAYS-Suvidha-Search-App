@@ -1,92 +1,76 @@
-import * as React from 'react';
-import { StyleSheet, TouchableOpacity, View, Text, Image, ImageSourcePropType } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { COLORS, FONTS, SHADOWS, SIZES } from '../constants/theme';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Dimensions } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import Colors from '../constants/Colors';
+import { Category } from '../constants/MockData';
 
 interface CategoryCardProps {
-  name: string;
-  icon: string;
-  image: ImageSourcePropType;
-  description: string;
+  category: Category;
   onPress: () => void;
 }
 
-const CategoryCard: React.FC<CategoryCardProps> = ({ name, icon, image, description, onPress }) => {
+const { width } = Dimensions.get('window');
+const cardWidth = (width - 48) / 2; // 2 columns with 16px padding on sides and 16px between
+
+const CategoryCard: React.FC<CategoryCardProps> = ({ category, onPress }) => {
   return (
-    <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.8}>
-      <Image source={image} style={styles.image} />
-      <View style={styles.overlay} />
-      <View style={styles.content}>
-        <View style={styles.iconContainer}>
-          <MaterialCommunityIcons name={icon as any} size={32} color={COLORS.white} />
-        </View>
-        <Text style={styles.title}>{name}</Text>
-        <Text style={styles.description} numberOfLines={2}>
-          {description}
-        </Text>
+    <TouchableOpacity 
+      style={styles.card} 
+      onPress={onPress} 
+      activeOpacity={0.7}
+    >
+      <View style={styles.iconContainer}>
+        <MaterialIcons name={category.icon as any} size={28} color={Colors.primary} />
       </View>
+      <Text style={styles.title}>{category.name}</Text>
+      <Text style={styles.description} numberOfLines={2}>
+        {category.description}
+      </Text>
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    width: 280,
-    height: 180,
-    borderRadius: SIZES.radius,
-    marginBottom: SIZES.padding,
-    overflow: 'hidden',
-    ...SHADOWS.medium,
-  },
-  image: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderRadius: SIZES.radius,
-  },
-  content: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    padding: SIZES.padding,
-    justifyContent: 'center',
+  card: {
+    backgroundColor: Colors.card,
+    borderRadius: 16,
+    padding: 16,
+    width: cardWidth,
+    margin: 8,
     alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.cardShadow,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   iconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: `${Colors.primary}10`,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: SIZES.base,
+    marginBottom: 16,
   },
   title: {
-    ...FONTS.bold,
-    fontSize: SIZES.extraLarge,
-    color: COLORS.white,
-    marginTop: SIZES.base,
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 8,
     textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
   },
   description: {
-    ...FONTS.regular,
-    fontSize: SIZES.small,
-    color: COLORS.white,
-    marginTop: SIZES.base,
+    fontSize: 13,
+    color: Colors.textLight,
+    lineHeight: 18,
     textAlign: 'center',
-    opacity: 0.9,
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
   },
 });
 

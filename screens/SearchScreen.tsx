@@ -1,171 +1,176 @@
-import React, { useState } from 'react';
-import { 
-  StyleSheet, 
-  View, 
-  Text, 
-  FlatList, 
-  TouchableOpacity, 
-  SafeAreaView,
-  StatusBar
-} from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { COLORS, FONTS, SIZES } from '../constants/theme';
-import { searchMerchants } from '../data/mockData';
-import MerchantCard from '../components/MerchantCard';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, StyleSheet, SafeAreaView, StatusBar, FlatList, Text, Linking } from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import SearchBar from '../components/SearchBar';
+import CategoryCard from '../components/CategoryCard';
+import MerchantCard from '../components/MerchantCard';
+import Colors from '../constants/Colors';
+import { merchants, Category, Merchant } from '../constants/MockData';
 
-const SearchScreen = ({ navigation }: any) => {
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  
-  const handleSearch = (query: string) => {
-    if (query.trim()) {
-      const results = searchMerchants(query);
-      setSearchResults(results);
-      setIsSearching(true);
-      
-      // Add to recent searches
-      if (!recentSearches.includes(query)) {
-        setRecentSearches(prev => [query, ...prev].slice(0, 5));
+interface SearchSuggestion {
+  id: string;
+  title: string;
+  subtitle: string;
+  type: 'category' | 'merchant' | 'location' | 'discount';
+  data: any;
+  icon: string;
+}
+
+const SearchScreen = () => {
+  const navigation = useNavigation();
+  const route = useRoute();
+  const [searchResults, setSearchResults] = useState<{
+    categories: Category[];
+    merchants: Merchant[];
+  }>({ categories: [], merchants: [] });
+  const [showResults, setShowResults] = useState(false);
+
+  const handleSuggestionPress = useCallback((suggestion: SearchSuggestion) => {
+    console.log('Search suggestion pressed:', suggestion);
+    
+    // Check if the suggestion has a URL to open
+    if (suggestion.data?.url) {
+      try {
+        // Try to open the URL
+        Linking.openURL(suggestion.data.url);
+        return;
+      } catch (error) {
+        console.error('Failed to open URL:', suggestion.data.url, error);
+        // Continue with normal navigation if URL fails
       }
-    } else {
-      setSearchResults([]);
-      setIsSearching(false);
     }
-  };
-  
-  const handleSelectSuggestion = (type: string, id: string) => {
-    if (type === 'category') {
-      navigation.navigate('CategoryDetails', { categoryId: id });
-    } else if (type === 'merchant') {
-      navigation.navigate('MerchantDetails', { merchantId: id });
-    } else if (type === 'location') {
-      // Handle location suggestion
-    } else if (type === 'discount') {
-      // Handle discount suggestion
+
+    switch (suggestion.type) {
+      case 'category':
+        (navigation as any).navigate('Category', {
+          categoryId: suggestion.data.slug || suggestion.data.id,
+          categoryName: suggestion.data.name || suggestion.title,
+        });
+        break;
+      case 'merchant':
+        // Create a proper merchant object for navigation
+        const merchantData: Merchant = {
+          id: suggestion.data.id || parseInt(suggestion.id),
+          name: suggestion.data.name || suggestion.title,
+          category: suggestion.data.category || suggestion.data.category_name,
+          address: suggestion.data.address,
+          contact: suggestion.data.contact || suggestion.data.phone,
+          discount: suggestion.data.discount,
+          description: suggestion.data.description,
+          rating: suggestion.data.rating,
+          totalBranches: suggestion.data.totalBranches || suggestion.data.branch_count || 1,
+          establishedYear: suggestion.data.establishedYear || suggestion.data.established_year,
+          website: suggestion.data.website,
+          ...suggestion.data // Include any additional fields
+        };
+        
+        (navigation as any).navigate('MerchantDetail', {
+          merchant: merchantData,
+        });
+        break;
+      case 'location':
+        // Filter merchants by location
+        const locationMerchants = merchants.filter(merchant =>
+          merchant.address?.toLowerCase().includes(suggestion.data.location?.toLowerCase() || suggestion.title.toLowerCase())
+        );
+        setSearchResults({ categories: [], merchants: locationMerchants });
+        setShowResults(true);
+        break;
+      case 'discount':
+        // Filter merchants by discount
+        const discountMerchants = merchants.filter(merchant =>
+          merchant.discount === suggestion.data.discount || merchant.discount === suggestion.title
+        );
+        setSearchResults({ categories: [], merchants: discountMerchants });
+        setShowResults(true);
+        break;
+      default:
+        console.warn('Unknown suggestion type:', suggestion.type);
+        break;
     }
+  }, [navigation]);
+
+  // Handle incoming suggestion from navigation
+  useEffect(() => {
+    const params = route.params as any;
+    if (params?.suggestion) {
+      handleSuggestionPress(params.suggestion);
+    }
+  }, [route.params, handleSuggestionPress]);
+
+  const handleCategoryPress = (categoryId: string, categoryName: string) => {
+    (navigation as any).navigate('Category', { categoryId, categoryName });
   };
-  
-  const handleRecentSearch = (query: string) => {
-    handleSearch(query);
+
+  const handleMerchantPress = (merchant: Merchant) => {
+    (navigation as any).navigate('MerchantDetail', { merchant });
   };
-  
-  const clearRecentSearches = () => {
-    setRecentSearches([]);
-  };
-  
-  const renderMerchantItem = ({ item }: any) => (
-    <MerchantCard
-      merchant={item}
-      onPress={() => navigation.navigate('MerchantDetails', { merchantId: item.id })}
-    />
-  );
-  
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
-      
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Search</Text>
-      </View>
-      
-      <View style={styles.searchContainer}>
-        <SearchBar 
-          onSearch={handleSearch} 
-          onSelectSuggestion={handleSelectSuggestion} 
-        />
-      </View>
-      
-      {isSearching ? (
-        <View style={styles.resultsContainer}>
-          <View style={styles.resultsHeader}>
-            <Text style={styles.resultsTitle}>
-              {searchResults.length} {searchResults.length === 1 ? 'Result' : 'Results'} Found
+
+  const renderSearchResults = () => {
+    if (!showResults) return null;
+
+    return (
+      <View style={styles.resultsContainer}>
+        {searchResults.categories.length > 0 && (
+          <View style={styles.resultSection}>
+            <Text style={styles.resultSectionTitle}>Categories</Text>
+            <FlatList
+              data={searchResults.categories}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <CategoryCard
+                  category={item}
+                  onPress={() => handleCategoryPress(item.id, item.name)}
+                />
+              )}
+              numColumns={2}
+              columnWrapperStyle={styles.columnWrapper}
+              scrollEnabled={false}
+            />
+          </View>
+        )}
+
+        {searchResults.merchants.length > 0 && (
+          <View style={styles.resultSection}>
+            <Text style={styles.resultSectionTitle}>
+              Merchants ({searchResults.merchants.length})
+            </Text>
+            <FlatList
+              data={searchResults.merchants}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={({ item }) => (
+                <MerchantCard
+                  merchant={item}
+                  onPress={() => handleMerchantPress(item)}
+                />
+              )}
+              scrollEnabled={false}
+            />
+          </View>
+        )}
+
+        {searchResults.categories.length === 0 && searchResults.merchants.length === 0 && (
+          <View style={styles.noResultsContainer}>
+            <Text style={styles.noResultsText}>No results found</Text>
+            <Text style={styles.noResultsSubtext}>
+              Try searching for different keywords
             </Text>
           </View>
-          
-          {searchResults.length > 0 ? (
-            <FlatList
-              data={searchResults}
-              renderItem={renderMerchantItem}
-              keyExtractor={(item) => item.id}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.resultsList}
-            />
-          ) : (
-            <View style={styles.noResultsContainer}>
-              <MaterialCommunityIcons name="magnify-close" size={48} color={COLORS.gray} />
-              <Text style={styles.noResultsText}>No results found</Text>
-              <Text style={styles.noResultsSubtext}>Try a different search term</Text>
-            </View>
-          )}
-        </View>
-      ) : (
-        <View style={styles.initialContent}>
-          {recentSearches.length > 0 && (
-            <View style={styles.recentSearchesContainer}>
-              <View style={styles.recentSearchesHeader}>
-                <Text style={styles.recentSearchesTitle}>Recent Searches</Text>
-                <TouchableOpacity onPress={clearRecentSearches}>
-                  <Text style={styles.clearText}>Clear</Text>
-                </TouchableOpacity>
-              </View>
-              
-              {recentSearches.map((search, index) => (
-                <TouchableOpacity 
-                  key={`recent-${index}`}
-                  style={styles.recentSearchItem}
-                  onPress={() => handleRecentSearch(search)}
-                >
-                  <MaterialCommunityIcons name="history" size={20} color={COLORS.text.tertiary} />
-                  <Text style={styles.recentSearchText}>{search}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-          
-          <View style={styles.popularFiltersContainer}>
-            <Text style={styles.popularFiltersTitle}>Popular Filters</Text>
-            
-            <View style={styles.filtersRow}>
-              <TouchableOpacity 
-                style={styles.filterButton}
-                onPress={() => handleSearch('restaurant')}
-              >
-                <MaterialCommunityIcons name="food" size={20} color={COLORS.primary} />
-                <Text style={styles.filterText}>Restaurants</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.filterButton}
-                onPress={() => handleSearch('healthcare')}
-              >
-                <MaterialCommunityIcons name="hospital" size={20} color={COLORS.primary} />
-                <Text style={styles.filterText}>Healthcare</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.filtersRow}>
-              <TouchableOpacity 
-                style={styles.filterButton}
-                onPress={() => handleSearch('20% off')}
-              >
-                <MaterialCommunityIcons name="tag" size={20} color={COLORS.primary} />
-                <Text style={styles.filterText}>20% Off</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.filterButton}
-                onPress={() => handleSearch('popular')}
-              >
-                <MaterialCommunityIcons name="star" size={20} color={COLORS.primary} />
-                <Text style={styles.filterText}>Popular</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      )}
+        )}
+      </View>
+    );
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar backgroundColor={Colors.card} barStyle="dark-content" />
+      
+      <SearchBar
+        onSuggestionPress={handleSuggestionPress}
+        onSearchFocus={() => setShowResults(false)}
+      />
+
+      {renderSearchResults()}
     </SafeAreaView>
   );
 };
@@ -173,125 +178,42 @@ const SearchScreen = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  header: {
-    paddingHorizontal: SIZES.padding,
-    paddingTop: SIZES.padding,
-    paddingBottom: SIZES.base,
-  },
-  headerTitle: {
-    ...FONTS.bold,
-    fontSize: SIZES.extraLarge,
-    color: COLORS.text.primary,
-  },
-  searchContainer: {
-    paddingHorizontal: SIZES.padding,
-    marginBottom: SIZES.padding,
-    zIndex: 10,
+    backgroundColor: Colors.background,
   },
   resultsContainer: {
     flex: 1,
-    paddingHorizontal: SIZES.padding,
+    paddingTop: 16,
   },
-  resultsHeader: {
-    marginBottom: SIZES.padding,
+  resultSection: {
+    marginBottom: 24,
   },
-  resultsTitle: {
-    ...FONTS.bold,
-    fontSize: SIZES.large,
-    color: COLORS.text.primary,
+  resultSectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.text,
+    marginHorizontal: 16,
+    marginBottom: 12,
   },
-  resultsList: {
-    paddingBottom: 100,
+  columnWrapper: {
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
   },
   noResultsContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingBottom: 100,
+    paddingHorizontal: 32,
   },
   noResultsText: {
-    ...FONTS.bold,
-    fontSize: SIZES.large,
-    color: COLORS.text.primary,
-    marginTop: SIZES.padding,
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 8,
   },
   noResultsSubtext: {
-    ...FONTS.regular,
-    fontSize: SIZES.font,
-    color: COLORS.text.tertiary,
-    marginTop: SIZES.base,
-  },
-  initialContent: {
-    flex: 1,
-    paddingHorizontal: SIZES.padding,
-  },
-  recentSearchesContainer: {
-    backgroundColor: COLORS.white,
-    borderRadius: SIZES.radius,
-    padding: SIZES.padding,
-    marginBottom: SIZES.padding,
-  },
-  recentSearchesHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SIZES.padding,
-  },
-  recentSearchesTitle: {
-    ...FONTS.bold,
-    fontSize: SIZES.medium,
-    color: COLORS.text.primary,
-  },
-  clearText: {
-    ...FONTS.medium,
-    fontSize: SIZES.small,
-    color: COLORS.primary,
-  },
-  recentSearchItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: SIZES.base,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
-  },
-  recentSearchText: {
-    ...FONTS.regular,
-    fontSize: SIZES.font,
-    color: COLORS.text.secondary,
-    marginLeft: SIZES.base,
-  },
-  popularFiltersContainer: {
-    backgroundColor: COLORS.white,
-    borderRadius: SIZES.radius,
-    padding: SIZES.padding,
-  },
-  popularFiltersTitle: {
-    ...FONTS.bold,
-    fontSize: SIZES.medium,
-    color: COLORS.text.primary,
-    marginBottom: SIZES.padding,
-  },
-  filtersRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: SIZES.padding,
-  },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.lightGray,
-    paddingHorizontal: SIZES.padding,
-    paddingVertical: SIZES.base,
-    borderRadius: SIZES.radius,
-    width: '48%',
-  },
-  filterText: {
-    ...FONTS.medium,
-    fontSize: SIZES.font,
-    color: COLORS.text.primary,
-    marginLeft: SIZES.base,
+    fontSize: 14,
+    color: Colors.textLight,
+    textAlign: 'center',
   },
 });
 

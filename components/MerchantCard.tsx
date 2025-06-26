@@ -1,8 +1,8 @@
-import * as React from 'react';
-import { StyleSheet, TouchableOpacity, View, Text, Image } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { COLORS, FONTS, SHADOWS, SIZES } from '../constants/theme';
-import { Merchant } from '../data/mockData';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import Colors from '../constants/Colors';
+import { Merchant } from '../constants/MockData';
 
 interface MerchantCardProps {
   merchant: Merchant;
@@ -10,54 +10,79 @@ interface MerchantCardProps {
 }
 
 const MerchantCard: React.FC<MerchantCardProps> = ({ merchant, onPress }) => {
-  // Get the highest discount percentage
-  const highestDiscount = merchant.discounts.reduce(
-    (max, discount) => (discount.percentage > max ? discount.percentage : max),
-    0
-  );
+  // Safe access to merchant properties with fallbacks
+  const merchantName = merchant.name || 'Unknown Merchant';
+  const merchantRating = typeof merchant.rating === 'number' ? merchant.rating : 0;
+  const merchantDiscount = merchant.discount || 'No discount available';
+  const merchantAddress = merchant.address || 'Address not available';
+  const merchantBranches = merchant.branch_count || 1;
+  const merchantEstablished = merchant.establishedYear;
 
   return (
-    <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.8}>
-      <View style={styles.imageContainer}>
-        {merchant.image ? (
-          <Image source={merchant.image} style={styles.image} />
-        ) : (
-          <View style={styles.placeholderImage}>
-            <MaterialCommunityIcons 
-              name={merchant.category === 'Restaurants' ? 'food' : 
-                    merchant.category === 'Healthcare' ? 'hospital' :
-                    merchant.category === 'Shopping' ? 'shopping' :
-                    merchant.category === 'Entertainment' ? 'movie' : 'school'} 
-              size={32} 
-              color={COLORS.primary} 
-            />
+    <TouchableOpacity 
+      style={styles.card} 
+      onPress={onPress} 
+      activeOpacity={0.7}
+    >
+      <View style={styles.cardContent}>
+        <View style={styles.leftSection}>
+          <View style={styles.iconContainer}>
+            <Text style={styles.iconText}>{merchantName.charAt(0).toUpperCase()}</Text>
           </View>
-        )}
-        {highestDiscount > 0 && (
-          <View style={styles.discountBadge}>
-            <Text style={styles.discountText}>{highestDiscount}% OFF</Text>
-          </View>
-        )}
-      </View>
-      
-      <View style={styles.content}>
-        <Text style={styles.title} numberOfLines={1}>{merchant.name}</Text>
-        
-        <View style={styles.ratingContainer}>
-          <MaterialCommunityIcons name="star" size={16} color={COLORS.secondary} />
-          <Text style={styles.rating}>{merchant.rating.toFixed(1)}</Text>
-          <Text style={styles.reviews}>({merchant.reviews})</Text>
         </View>
         
-        <Text style={styles.description} numberOfLines={2}>
-          {merchant.description}
-        </Text>
-        
-        <View style={styles.locationContainer}>
-          <MaterialCommunityIcons name="map-marker" size={14} color={COLORS.gray} />
-          <Text style={styles.location} numberOfLines={1}>
-            {merchant.locations[0].area}, {merchant.locations[0].city}
-          </Text>
+        <View style={styles.middleSection}>
+          <View style={styles.header}>
+            <Text style={styles.name}>{merchantName}</Text>
+            {merchantRating > 0 && (
+              <View style={styles.ratingContainer}>
+                <MaterialIcons name="star" size={16} color={Colors.warning} />
+                <Text style={styles.rating}>{merchantRating.toFixed(1)}</Text>
+              </View>
+            )}
+          </View>
+          
+          <View style={styles.discountContainer}>
+            <MaterialIcons name="local-offer" size={16} color="white" />
+            <Text style={styles.discount}>{merchantDiscount}</Text>
+          </View>
+          
+          <View style={styles.addressContainer}>
+            <MaterialIcons name="location-on" size={14} color={Colors.textLight} />
+            <Text style={styles.address} numberOfLines={1}>{merchantAddress}</Text>
+          </View>
+
+          {/* Branch Information */}
+          <View style={styles.branchInfo}>
+            <View style={styles.branchContainer}>
+              <MaterialIcons name="store" size={14} color={Colors.primary} />
+              <Text style={styles.branchText}>
+                {merchantBranches} {merchantBranches === 1 ? 'Branch' : 'Branches'}
+              </Text>
+            </View>
+            {merchantEstablished && (
+              <View style={styles.establishedContainer}>
+                <MaterialIcons name="event" size={14} color={Colors.textLight} />
+                <Text style={styles.establishedText}>Est. {merchantEstablished}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </View>
+      
+      <View style={styles.cardFooter}>
+        <View style={styles.tagContainer}>
+          <View style={[styles.tag, { backgroundColor: `${Colors.primary}15` }]}>
+            <Text style={styles.tagText}>Verified</Text>
+          </View>
+          {merchantBranches > 1 && (
+            <View style={[styles.tag, { backgroundColor: `${Colors.secondary}15` }]}>
+              <Text style={[styles.tagText, { color: Colors.secondary }]}>Multi-Branch</Text>
+            </View>
+          )}
+        </View>
+        <View style={styles.arrowContainer}>
+          <MaterialIcons name="arrow-forward-ios" size={16} color={Colors.primary} />
         </View>
       </View>
     </TouchableOpacity>
@@ -65,90 +90,160 @@ const MerchantCard: React.FC<MerchantCardProps> = ({ merchant, onPress }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    width: '100%',
-    backgroundColor: COLORS.white,
-    borderRadius: SIZES.radius,
-    marginBottom: SIZES.padding,
+  card: {
+    backgroundColor: Colors.card,
+    borderRadius: 16,
+    marginVertical: 8,
+    marginHorizontal: 16,
     overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.cardShadow,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  cardContent: {
+    padding: 16,
     flexDirection: 'row',
-    ...SHADOWS.medium,
   },
-  imageContainer: {
-    width: 110,
-    height: 110,
-    position: 'relative',
+  leftSection: {
+    marginRight: 16,
   },
-  image: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  placeholderImage: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: COLORS.lightGray,
+  iconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: `${Colors.primary}15`,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  discountBadge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    backgroundColor: COLORS.tertiary,
-    paddingHorizontal: SIZES.base,
-    paddingVertical: 2,
-    borderBottomLeftRadius: SIZES.base,
+  iconText: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: Colors.primary,
   },
-  discountText: {
-    ...FONTS.bold,
-    fontSize: 10,
-    color: COLORS.white,
-  },
-  content: {
+  middleSection: {
     flex: 1,
-    padding: SIZES.padding,
-    justifyContent: 'center',
   },
-  title: {
-    ...FONTS.bold,
-    fontSize: SIZES.medium,
-    color: COLORS.text.primary,
-    marginBottom: 4,
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  name: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.text,
+    flex: 1,
+    marginRight: 8,
   },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    backgroundColor: `${Colors.warning}15`,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   rating: {
-    ...FONTS.medium,
-    fontSize: SIZES.small,
-    color: COLORS.text.primary,
-    marginLeft: 2,
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.warning,
+    marginLeft: 4,
   },
-  reviews: {
-    ...FONTS.regular,
-    fontSize: SIZES.small,
-    color: COLORS.text.tertiary,
-    marginLeft: 2,
+  discountContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.secondary,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginBottom: 8,
+    alignSelf: 'flex-start',
   },
-  description: {
-    ...FONTS.regular,
-    fontSize: SIZES.small,
-    color: COLORS.text.secondary,
-    marginBottom: 6,
-    lineHeight: 18,
+  discount: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'white',
+    marginLeft: 6,
   },
-  locationContainer: {
+  addressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  address: {
+    fontSize: 13,
+    color: Colors.textLight,
+    marginLeft: 4,
+    flex: 1,
+  },
+  branchInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  branchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: `${Colors.primary}08`,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  branchText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: Colors.primary,
+    marginLeft: 4,
+  },
+  establishedContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  location: {
-    ...FONTS.regular,
-    fontSize: SIZES.small,
-    color: COLORS.text.tertiary,
-    marginLeft: 2,
+  establishedText: {
+    fontSize: 12,
+    color: Colors.textLight,
+    marginLeft: 4,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    backgroundColor: `${Colors.background}50`,
+  },
+  tagContainer: {
+    flexDirection: 'row',
+  },
+  tag: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  tagText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: Colors.primary,
+  },
+  arrowContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: `${Colors.primary}10`,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

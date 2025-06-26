@@ -1,166 +1,136 @@
-import React, { useState } from 'react';
-import { 
-  StyleSheet, 
-  View, 
-  Text, 
-  ScrollView, 
-  Image, 
-  FlatList, 
-  TouchableOpacity,
-  SafeAreaView,
-  StatusBar,
-  Dimensions
-} from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { COLORS, FONTS, SIZES, SHADOWS } from '../constants/theme';
-import { categories, getPopularMerchants, searchMerchants } from '../data/mockData';
-import CategoryCard from '../components/CategoryCard';
-import MerchantCard from '../components/MerchantCard';
+import React from 'react';
+import { View, Text, StyleSheet, FlatList, SafeAreaView, StatusBar, ActivityIndicator } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import Header from '../components/Header';
 import SearchBar from '../components/SearchBar';
+import CategoryCard from '../components/CategoryCard';
+import { Category } from '../constants/MockData';
+import Colors from '../constants/Colors';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useCategories } from '../hooks/useApi';
 
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = width * 0.75;
+interface SearchSuggestion {
+  id: string;
+  title: string;
+  subtitle: string;
+  type: 'category' | 'merchant' | 'location' | 'discount';
+  data: any;
+  icon: string;
+}
 
-const HomeScreen = ({ navigation }: any) => {
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  
-  const popularMerchants = getPopularMerchants();
-  
-  const handleSearch = (query: string) => {
-    if (query.trim()) {
-      const results = searchMerchants(query);
-      setSearchResults(results);
-      setIsSearching(true);
-    } else {
-      setSearchResults([]);
-      setIsSearching(false);
-    }
-  };
-  
-  const handleSelectSuggestion = (type: string, id: string) => {
-    if (type === 'category') {
-      navigation.navigate('CategoryDetails', { categoryId: id });
-    } else if (type === 'merchant') {
-      navigation.navigate('MerchantDetails', { merchantId: id });
-    } else if (type === 'location') {
-      // Handle location suggestion
-      // This could navigate to a map view or filter by location
-    } else if (type === 'discount') {
-      // Handle discount suggestion
-      // This could navigate to the merchant with this discount
-    }
+const HomeScreen = () => {
+  const navigation = useNavigation();
+  const { data: categories, loading, error } = useCategories();
+
+  const handleCategoryPress = (category: Category) => {
+    console.log('Category pressed:', category);
     
-    setIsSearching(false);
+    // Ensure we have a valid slug
+    const categorySlug = category.slug || category.id || category.name?.toLowerCase().replace(/\s+/g, '-');
+    console.log('Using categorySlug:', categorySlug);
+    
+    (navigation as any).navigate('Category', { 
+      categoryId: categorySlug, 
+      categoryName: category.name 
+    });
   };
-  
-  const renderCategoryItem = ({ item }: any) => (
-    <CategoryCard
-      name={item.name}
-      icon={item.icon}
-      image={item.image}
-      description={item.description}
-      onPress={() => navigation.navigate('CategoryDetails', { categoryId: item.id })}
-    />
+
+  const handleSuggestionPress = (suggestion: SearchSuggestion) => {
+    switch (suggestion.type) {
+      case 'category':
+        const suggestionSlug = suggestion.data.slug || suggestion.data.id || suggestion.data.name?.toLowerCase().replace(/\s+/g, '-');
+        (navigation as any).navigate('Category', {
+          categoryId: suggestionSlug,
+          categoryName: suggestion.data.name,
+        });
+        break;
+      case 'merchant':
+        (navigation as any).navigate('MerchantDetail', {
+          merchant: suggestion.data,
+        });
+        break;
+      case 'location':
+      case 'discount':
+        (navigation as any).navigate('Search', {
+          suggestion: suggestion,
+        });
+        break;
+    }
+  };
+
+  const renderCategory = ({ item }: { item: Category }) => {
+    console.log('Rendering category:', item);
+    return (
+      <CategoryCard
+        category={item}
+        onPress={() => handleCategoryPress(item)}
+      />
+    );
+  };
+
+  const renderError = () => (
+    <View style={styles.errorContainer}>
+      <MaterialIcons name="error-outline" size={48} color={Colors.textLight} />
+      <Text style={styles.errorText}>Failed to load categories</Text>
+      <Text style={styles.errorSubtext}>Please check your internet connection</Text>
+      <Text style={styles.debugText}>Error: {error?.message}</Text>
+    </View>
   );
-  
-  const renderMerchantItem = ({ item }: any) => (
-    <MerchantCard
-      merchant={item}
-      onPress={() => navigation.navigate('MerchantDetails', { merchantId: item.id })}
-    />
+
+  const renderLoading = () => (
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="large" color={Colors.primary} />
+      <Text style={styles.loadingText}>Loading categories...</Text>
+    </View>
   );
+
+  // Ensure categories is an array and log the data
+  const categoryList = Array.isArray(categories) ? categories : [];
+  console.log('Categories data received:', categoryList);
   
+  // Log the first category to see its structure
+  if (categoryList.length > 0) {
+    console.log('First category structure:', categoryList[0]);
+  }
+
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <StatusBar backgroundColor={Colors.card} barStyle="dark-content" />
+      <Header title="DAYS Ahmedabad" />
       
-      <View style={styles.header}>
-        <Image source={require('../assets/images/days-logo.png')} style={styles.logo} />
-        <Text style={styles.headerTitle}>DAYS Ahmedabad</Text>
-      </View>
+      <SearchBar onSuggestionPress={handleSuggestionPress} />
       
-      <View style={styles.searchContainer}>
-        <SearchBar 
-          onSearch={handleSearch} 
-          onSelectSuggestion={handleSelectSuggestion} 
-        />
-      </View>
-      
-      {isSearching ? (
-        <View style={styles.searchResultsContainer}>
-          <Text style={styles.sectionTitle}>Search Results</Text>
-          {searchResults.length > 0 ? (
-            <FlatList
-              data={searchResults}
-              renderItem={renderMerchantItem}
-              keyExtractor={(item) => item.id}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.searchResultsList}
-            />
-          ) : (
-            <View style={styles.noResultsContainer}>
-              <MaterialCommunityIcons name="magnify-close" size={48} color={COLORS.gray} />
-              <Text style={styles.noResultsText}>No results found</Text>
-              <Text style={styles.noResultsSubtext}>Try a different search term</Text>
-            </View>
-          )}
+      <View style={styles.banner}>
+        <View style={styles.bannerContent}>
+          <View>
+            <Text style={styles.bannerTitle}>Suvidha Card</Text>
+            <Text style={styles.bannerSubtitle}>
+              Exclusive discounts across Ahmedabad
+            </Text>
+          </View>
+          <View style={styles.bannerIconContainer}>
+            <MaterialIcons name="card-giftcard" size={40} color="white" />
+          </View>
         </View>
-      ) : (
-        <ScrollView 
+      </View>
+      
+      <View style={styles.listHeader}>
+        <Text style={styles.listHeaderTitle}>Categories</Text>
+        <Text style={styles.listHeaderSubtitle}>
+          {categoryList.length > 0 ? `${categoryList.length} categories available` : 'Explore discount categories'}
+        </Text>
+      </View>
+      
+      {loading ? renderLoading() : error ? renderError() : (
+        <FlatList
+          data={categoryList}
+          keyExtractor={(item) => item.id || item.slug || item.name}
+          renderItem={renderCategory}
+          contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Categories</Text>
-            <FlatList
-              data={categories}
-              renderItem={renderCategoryItem}
-              keyExtractor={(item) => item.id}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.categoriesList}
-              snapToInterval={CARD_WIDTH + SIZES.padding}
-              decelerationRate="fast"
-              ItemSeparatorComponent={() => <View style={{ width: SIZES.padding }} />}
-            />
-          </View>
-          
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Popular Merchants</Text>
-              <TouchableOpacity 
-                style={styles.viewAllButton}
-                onPress={() => navigation.navigate('AllMerchants')}
-              >
-                <Text style={styles.viewAllText}>View All</Text>
-                <MaterialCommunityIcons name="chevron-right" size={20} color={COLORS.primary} />
-              </TouchableOpacity>
-            </View>
-            
-            {popularMerchants.map((merchant) => (
-              <MerchantCard
-                key={merchant.id}
-                merchant={merchant}
-                onPress={() => navigation.navigate('MerchantDetails', { merchantId: merchant.id })}
-              />
-            ))}
-          </View>
-          
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>About DAYS Suvidha Card</Text>
-            <View style={styles.aboutCard}>
-              <Text style={styles.aboutText}>
-                The DAYS Suvidha Card offers exclusive discounts and benefits at various establishments across Ahmedabad. 
-                From restaurants to healthcare, shopping to entertainment, enjoy special privileges with your DAYS membership.
-              </Text>
-              <TouchableOpacity style={styles.learnMoreButton}>
-                <Text style={styles.learnMoreText}>Learn More</Text>
-                <MaterialCommunityIcons name="arrow-right" size={18} color={COLORS.white} style={{ marginLeft: 4 }} />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </ScrollView>
+          numColumns={2}
+          columnWrapperStyle={categoryList.length > 1 ? styles.columnWrapper : undefined}
+        />
       )}
     </SafeAreaView>
   );
@@ -169,115 +139,103 @@ const HomeScreen = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: Colors.background,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SIZES.padding,
-    paddingTop: SIZES.padding,
-    paddingBottom: SIZES.base,
-    backgroundColor: COLORS.white,
-    ...SHADOWS.light,
+  banner: {
+    backgroundColor: Colors.primary,
+    padding: 20,
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 16,
+    borderRadius: 16,
+    elevation: 4,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
   },
-  logo: {
-    width: 40,
-    height: 40,
-    resizeMode: 'contain',
-  },
-  headerTitle: {
-    ...FONTS.bold,
-    fontSize: SIZES.extraLarge,
-    color: COLORS.primary,
-    marginLeft: SIZES.base,
-  },
-  searchContainer: {
-    paddingHorizontal: SIZES.padding,
-    marginVertical: SIZES.padding,
-    zIndex: 10,
-  },
-  scrollContent: {
-    paddingBottom: 100,
-  },
-  section: {
-    marginBottom: SIZES.padding * 2,
-    paddingHorizontal: SIZES.padding,
-  },
-  sectionHeader: {
+  bannerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SIZES.padding,
   },
-  sectionTitle: {
-    ...FONTS.bold,
-    fontSize: SIZES.large,
-    color: COLORS.text.primary,
-    marginBottom: SIZES.padding,
+  bannerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
   },
-  viewAllButton: {
-    flexDirection: 'row',
+  bannerSubtitle: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.9)',
+    maxWidth: '80%',
+  },
+  bannerIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  viewAllText: {
-    ...FONTS.medium,
-    fontSize: SIZES.font,
-    color: COLORS.primary,
+  listHeader: {
+    paddingHorizontal: 16,
+    marginBottom: 8,
   },
-  categoriesList: {
-    paddingRight: SIZES.padding,
+  listHeaderTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.text,
   },
-  aboutCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: SIZES.radius,
-    padding: SIZES.padding,
-    ...SHADOWS.medium,
+  listHeaderSubtitle: {
+    fontSize: 14,
+    color: Colors.textLight,
+    marginTop: 4,
   },
-  aboutText: {
-    ...FONTS.regular,
-    fontSize: SIZES.font,
-    color: COLORS.text.secondary,
-    lineHeight: 22,
+  listContent: {
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    paddingBottom: 24,
   },
-  learnMoreButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    marginTop: SIZES.padding,
-    paddingVertical: SIZES.base,
-    paddingHorizontal: SIZES.padding,
-    backgroundColor: COLORS.primary,
-    borderRadius: SIZES.radius,
+  columnWrapper: {
+    justifyContent: 'space-between',
   },
-  learnMoreText: {
-    ...FONTS.medium,
-    fontSize: SIZES.font,
-    color: COLORS.white,
-  },
-  searchResultsContainer: {
-    flex: 1,
-    paddingHorizontal: SIZES.padding,
-  },
-  searchResultsList: {
-    paddingBottom: 100,
-  },
-  noResultsContainer: {
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingBottom: 100,
+    padding: 32,
   },
-  noResultsText: {
-    ...FONTS.bold,
-    fontSize: SIZES.large,
-    color: COLORS.text.primary,
-    marginTop: SIZES.padding,
+  loadingText: {
+    fontSize: 16,
+    color: Colors.textLight,
+    marginTop: 16,
   },
-  noResultsSubtext: {
-    ...FONTS.regular,
-    fontSize: SIZES.font,
-    color: COLORS.text.tertiary,
-    marginTop: SIZES.base,
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  errorText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.text,
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: Colors.textLight,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  debugText: {
+    fontSize: 12,
+    color: Colors.warning,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });
 
