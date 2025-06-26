@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, StatusBar, ScrollView, TouchableOpacity, Linking, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, StatusBar, ScrollView, TouchableOpacity, Linking, Platform } from 'react-native';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import BranchCard from '../components/BranchCard';
+import BranchCardSkeleton from '../components/BranchCardSkeleton';
 import Colors from '../constants/Colors';
 import { Merchant } from '../constants/MockData';
 import { useMerchantBranches } from '../hooks/useApi';
@@ -25,8 +26,9 @@ const MerchantDetailScreen = () => {
   const merchantAddress = merchant.address || 'Address not available';
   const merchantContact = merchant.contact || '';
 
-  // Fetch branches from API
-  const { data: branchData, loading: branchLoading, error: branchError } = useMerchantBranches(merchant.id);
+  // Fetch branches from API - ensure merchant.id is a number
+  const merchantId = typeof merchant.id === 'string' ? parseInt(merchant.id) : merchant.id;
+  const { data: branchData, loading: branchLoading, error: branchError } = useMerchantBranches(merchantId);
 
   // Mock discount types for the merchant
   const discountTypes = [
@@ -179,9 +181,16 @@ const MerchantDetailScreen = () => {
   const renderBranchesTab = () => {
     if (branchLoading) {
       return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Loading branches...</Text>
+        <View style={styles.branchesContainer}>
+          <View style={styles.branchesHeader}>
+            <Text style={styles.branchesTitle}>Loading Branches...</Text>
+            <Text style={styles.branchesSubtitle}>Please wait while we fetch branch information</Text>
+          </View>
+          
+          {/* Render shimmer skeletons */}
+          {[1, 2, 3].map((index) => (
+            <BranchCardSkeleton key={index} />
+          ))}
         </View>
       );
     }
@@ -192,6 +201,7 @@ const MerchantDetailScreen = () => {
           <MaterialIcons name="error-outline" size={48} color={Colors.textLight} />
           <Text style={styles.errorText}>Failed to load branches</Text>
           <Text style={styles.errorSubtext}>Please try again later</Text>
+          <Text style={styles.debugText}>Error: {branchError.message}</Text>
         </View>
       );
     }
@@ -252,7 +262,7 @@ const MerchantDetailScreen = () => {
           <View style={styles.branchCountContainer}>
             <MaterialIcons name="store" size={16} color={Colors.primary} />
             <Text style={styles.branchCountText}>
-              {branches.length} {branches.length === 1 ? 'Branch' : 'Branches'}
+              {branchLoading ? 'Loading...' : `${branches.length} ${branches.length === 1 ? 'Branch' : 'Branches'}`}
             </Text>
           </View>
         </View>
@@ -272,7 +282,7 @@ const MerchantDetailScreen = () => {
             onPress={() => setSelectedTab('branches')}
           >
             <Text style={[styles.tabText, selectedTab === 'branches' && styles.activeTabText]}>
-              Branches ({branches.length})
+              Branches {branchLoading ? '' : `(${branches.length})`}
             </Text>
           </TouchableOpacity>
         </View>
@@ -598,18 +608,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textLight,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-    minHeight: 200,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: Colors.textLight,
-    marginTop: 16,
-  },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -629,6 +627,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textLight,
     textAlign: 'center',
+    marginBottom: 8,
+  },
+  debugText: {
+    fontSize: 12,
+    color: Colors.warning,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   emptyContainer: {
     flex: 1,

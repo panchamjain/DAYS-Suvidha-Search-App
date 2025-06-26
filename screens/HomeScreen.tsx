@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, SafeAreaView, StatusBar, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, SafeAreaView, StatusBar } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Header from '../components/Header';
 import SearchBar from '../components/SearchBar';
 import CategoryCard from '../components/CategoryCard';
+import CategoryCardSkeleton from '../components/CategoryCardSkeleton';
 import { Category } from '../constants/MockData';
 import Colors from '../constants/Colors';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -36,26 +37,8 @@ const HomeScreen = () => {
   };
 
   const handleSuggestionPress = (suggestion: SearchSuggestion) => {
-    switch (suggestion.type) {
-      case 'category':
-        const suggestionSlug = suggestion.data.slug || suggestion.data.id || suggestion.data.name?.toLowerCase().replace(/\s+/g, '-');
-        (navigation as any).navigate('Category', {
-          categoryId: suggestionSlug,
-          categoryName: suggestion.data.name,
-        });
-        break;
-      case 'merchant':
-        (navigation as any).navigate('MerchantDetail', {
-          merchant: suggestion.data,
-        });
-        break;
-      case 'location':
-      case 'discount':
-        (navigation as any).navigate('Search', {
-          suggestion: suggestion,
-        });
-        break;
-    }
+    // This is now handled in the SearchBar component itself
+    console.log('Suggestion pressed:', suggestion);
   };
 
   const renderCategory = ({ item }: { item: Category }) => {
@@ -68,6 +51,10 @@ const HomeScreen = () => {
     );
   };
 
+  const renderCategorySkeleton = ({ item }: { item: number }) => (
+    <CategoryCardSkeleton key={item} />
+  );
+
   const renderError = () => (
     <View style={styles.errorContainer}>
       <MaterialIcons name="error-outline" size={48} color={Colors.textLight} />
@@ -77,11 +64,16 @@ const HomeScreen = () => {
     </View>
   );
 
-  const renderLoading = () => (
-    <View style={styles.loadingContainer}>
-      <ActivityIndicator size="large" color={Colors.primary} />
-      <Text style={styles.loadingText}>Loading categories...</Text>
-    </View>
+  const renderShimmerLoading = () => (
+    <FlatList
+      data={[1, 2, 3, 4, 5, 6]}
+      keyExtractor={(item) => `skeleton-${item}`}
+      renderItem={renderCategorySkeleton}
+      contentContainerStyle={styles.listContent}
+      showsVerticalScrollIndicator={false}
+      numColumns={2}
+      columnWrapperStyle={styles.columnWrapper}
+    />
   );
 
   // Ensure categories is an array and log the data
@@ -117,11 +109,16 @@ const HomeScreen = () => {
       <View style={styles.listHeader}>
         <Text style={styles.listHeaderTitle}>Categories</Text>
         <Text style={styles.listHeaderSubtitle}>
-          {categoryList.length > 0 ? `${categoryList.length} categories available` : 'Explore discount categories'}
+          {loading 
+            ? 'Loading categories...' 
+            : categoryList.length > 0 
+              ? `${categoryList.length} categories available` 
+              : 'Explore discount categories'
+          }
         </Text>
       </View>
       
-      {loading ? renderLoading() : error ? renderError() : (
+      {loading ? renderShimmerLoading() : error ? renderError() : (
         <FlatList
           data={categoryList}
           keyExtractor={(item) => item.id || item.slug || item.name}
@@ -199,17 +196,6 @@ const styles = StyleSheet.create({
   },
   columnWrapper: {
     justifyContent: 'space-between',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: Colors.textLight,
-    marginTop: 16,
   },
   errorContainer: {
     flex: 1,

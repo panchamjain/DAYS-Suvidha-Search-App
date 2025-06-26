@@ -1,5 +1,4 @@
 import { apiService } from './api';
-import { Merchant, Category } from '../constants/MockData';
 
 export interface SearchResult {
   id: string;
@@ -50,6 +49,11 @@ class SearchService {
             });
           }
         }
+        
+        // If no arrays found, check if response has direct merchant/category properties
+        if (results.length === 0 && response.id) {
+          results.push(this.transformSearchItem(response, 0));
+        }
       }
       
       return {
@@ -71,17 +75,26 @@ class SearchService {
     let icon = 'store';
     let title = item.name || item.title || `Result ${index + 1}`;
     let subtitle = 'Search Result';
+    let url = item.url || item.link;
     
     // Determine type based on item properties or API response structure
-    if (item.category_name || item.category || type === 'categories') {
+    if (item.category_name || item.category || type === 'categories' || item.icon) {
       resultType = 'category';
-      icon = 'category';
+      icon = item.icon || 'category';
       subtitle = 'Category';
-    } else if (item.address || item.location) {
-      if (item.name && (item.discount || item.rating)) {
+      // Generate category URL
+      if (!url && (item.slug || item.id)) {
+        url = `/category/${item.slug || item.id}`;
+      }
+    } else if (item.address || item.location || item.branches) {
+      if (item.name && (item.discount || item.rating || item.category_name)) {
         resultType = 'merchant';
         icon = 'store';
-        subtitle = 'Merchant';
+        subtitle = item.category_name ? `Merchant in ${item.category_name}` : 'Merchant';
+        // Generate merchant URL
+        if (!url && item.id) {
+          url = `/merchant/${item.id}`;
+        }
       } else {
         resultType = 'location';
         icon = 'location-on';
@@ -98,6 +111,9 @@ class SearchService {
       }
     } else if (resultType === 'category') {
       subtitle = 'Category';
+      if (item.description) {
+        subtitle = `Category - ${item.description.substring(0, 30)}...`;
+      }
     }
     
     return {
@@ -105,7 +121,7 @@ class SearchService {
       title,
       subtitle,
       type: resultType,
-      url: item.url || item.link,
+      url,
       data: item,
       icon
     };

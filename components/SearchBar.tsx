@@ -10,6 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import Fuse from 'fuse.js';
 import Colors from '../constants/Colors';
 import { categories, merchants } from '../constants/MockData';
@@ -22,6 +23,7 @@ interface SearchSuggestion {
   type: 'category' | 'merchant' | 'location' | 'discount';
   data: any;
   icon: string;
+  url?: string;
 }
 
 interface SearchBarProps {
@@ -35,6 +37,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
   onSearchFocus,
   onSearchBlur,
 }) => {
+  const navigation = useNavigation();
   const [searchQuery, setSearchQuery] = useState('');
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -54,6 +57,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
       type: 'category' as const,
       data: category,
       icon: category.icon,
+      url: `/category/${category.slug || category.id}`,
     })),
     // Merchants
     ...merchants.map(merchant => ({
@@ -63,6 +67,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
       type: 'merchant' as const,
       data: merchant,
       icon: 'store',
+      url: `/merchant/${merchant.id}`,
     })),
     // Locations (extracted from merchant addresses)
     ...Array.from(new Set(merchants.map(m => m.address?.split(',')[0]?.trim()).filter(Boolean)))
@@ -110,7 +115,49 @@ const SearchBar: React.FC<SearchBarProps> = ({
     type: result.type === 'location' ? 'location' : result.type,
     data: result.data,
     icon: result.icon,
+    url: result.url,
   });
+
+  // Navigate based on URL or type
+  const navigateToResult = (suggestion: SearchSuggestion) => {
+    if (suggestion.url) {
+      // Parse URL and navigate accordingly
+      if (suggestion.url.includes('/category/')) {
+        const categoryId = suggestion.url.split('/category/')[1];
+        (navigation as any).navigate('Category', { 
+          categoryId, 
+          categoryName: suggestion.title 
+        });
+      } else if (suggestion.url.includes('/merchant/')) {
+        const merchantId = suggestion.url.split('/merchant/')[1];
+        (navigation as any).navigate('MerchantDetail', { 
+          merchant: { ...suggestion.data, id: merchantId }
+        });
+      }
+    } else {
+      // Fallback to type-based navigation
+      switch (suggestion.type) {
+        case 'category':
+          const categorySlug = suggestion.data.slug || suggestion.data.id || suggestion.data.name?.toLowerCase().replace(/\s+/g, '-');
+          (navigation as any).navigate('Category', {
+            categoryId: categorySlug,
+            categoryName: suggestion.data.name,
+          });
+          break;
+        case 'merchant':
+          (navigation as any).navigate('MerchantDetail', {
+            merchant: suggestion.data,
+          });
+          break;
+        case 'location':
+        case 'discount':
+          (navigation as any).navigate('Search', {
+            suggestion: suggestion,
+          });
+          break;
+      }
+    }
+  };
 
   // Search function with API integration
   const performSearch = useCallback(async (query: string) => {
@@ -177,6 +224,11 @@ const SearchBar: React.FC<SearchBarProps> = ({
     setShowSuggestions(false);
     animateDropdown(false);
     searchInputRef.current?.blur();
+    
+    // Navigate to the result
+    navigateToResult(suggestion);
+    
+    // Also call the original callback
     onSuggestionPress(suggestion);
   };
 
@@ -296,6 +348,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
+    minHeight: 48,
     ...Platform.select({
       ios: {
         shadowColor: Colors.cardShadow,
@@ -314,6 +367,7 @@ const styles = StyleSheet.create({
     color: Colors.text,
     marginLeft: 12,
     marginRight: 8,
+    minHeight: 24,
   },
   loadingIndicator: {
     padding: 4,
