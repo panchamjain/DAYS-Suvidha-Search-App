@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,16 +11,14 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import Fuse from 'fuse.js';
 import Colors from '../constants/Colors';
-import { categories, merchants } from '../constants/MockData';
 import { searchService, SearchResult } from '../services/searchService';
 
 interface SearchSuggestion {
   id: string;
   title: string;
   subtitle: string;
-  type: 'category' | 'merchant' | 'location' | 'discount';
+  type: 'category' | 'merchant' | 'location';
   data: any;
   icon: string;
   url?: string;
@@ -45,59 +43,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
 
   const animatedHeight = useRef(new Animated.Value(0)).current;
   const searchInputRef = useRef<TextInput>(null);
-  const searchTimeoutRef = useRef<NodeJS.Timeout>();
-
-  // Memoize local search data for fallback
-  const localSearchData = useMemo((): SearchSuggestion[] => [
-    // Categories
-    ...categories.map(category => ({
-      id: `category-${category.id}`,
-      title: category.name,
-      subtitle: 'Category',
-      type: 'category' as const,
-      data: category,
-      icon: category.icon,
-      url: `/category/${category.slug || category.id}`,
-    })),
-    // Merchants
-    ...merchants.map(merchant => ({
-      id: `merchant-${merchant.id}`,
-      title: merchant.name,
-      subtitle: 'Merchant',
-      type: 'merchant' as const,
-      data: merchant,
-      icon: 'store',
-      url: `/merchant/${merchant.id}`,
-    })),
-    // Locations (extracted from merchant addresses)
-    ...Array.from(new Set(merchants.map(m => m.address?.split(',')[0]?.trim()).filter(Boolean)))
-      .map((location, index) => ({
-        id: `location-${index}`,
-        title: location!,
-        subtitle: 'Location',
-        type: 'location' as const,
-        data: { location },
-        icon: 'location-on',
-      })),
-    // Discounts
-    ...Array.from(new Set(merchants.map(m => m.discount).filter(Boolean)))
-      .map((discount, index) => ({
-        id: `discount-${index}`,
-        title: discount!,
-        subtitle: 'Discount',
-        type: 'discount' as const,
-        data: { discount },
-        icon: 'local-offer',
-      })),
-  ], []);
-
-  // Memoize Fuse.js instance for local search fallback
-  const fuse = useMemo(() => new Fuse(localSearchData, {
-    keys: ['title', 'subtitle'],
-    threshold: 0.4,
-    includeScore: true,
-    minMatchCharLength: 1,
-  }), [localSearchData]);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const animateDropdown = useCallback((show: boolean) => {
     Animated.timing(animatedHeight, {
@@ -112,56 +58,62 @@ const SearchBar: React.FC<SearchBarProps> = ({
     id: result.id,
     title: result.title,
     subtitle: result.subtitle,
-    type: result.type === 'location' ? 'location' : result.type,
+    type: result.type,
     data: result.data,
     icon: result.icon,
     url: result.url,
   });
 
-  // Navigate based on URL or type
+  // Navigate based on type and URL from API
   const navigateToResult = (suggestion: SearchSuggestion) => {
     console.log('Navigating to suggestion:', suggestion);
     
-    if (suggestion.url) {
-      // Parse URL and navigate accordingly
-      if (suggestion.url.includes('/category/')) {
-        const categoryId = suggestion.url.split('/category/')[1];
+    // Use the type from API to determine navigation
+    switch (suggestion.type) {
+      case 'category':
+        // Extract category ID from URL or use data
+        let categoryId = suggestion.data.slug || suggestion.data.id;
+        
+        if (suggestion.url && suggestion.url.includes('/category/')) {
+          categoryId = suggestion.url.split('/category/')[1];
+        }
+        
+        console.log('Navigating to category:', categoryId, suggestion.title);
         (navigation as any).navigate('Category', { 
           categoryId, 
           categoryName: suggestion.title 
         });
-      } else if (suggestion.url.includes('/merchant/')) {
-        const merchantId = suggestion.url.split('/merchant/')[1];
+        break;
+        
+      case 'merchant':
+        // Extract merchant ID from URL or use data
+        let merchantId = suggestion.data.id;
+        
+        if (suggestion.url && suggestion.url.includes('/merchant/')) {
+          merchantId = suggestion.url.split('/merchant/')[1];
+        }
+        
+        console.log('Navigating to merchant:', merchantId, suggestion.title);
         (navigation as any).navigate('MerchantDetail', { 
           merchant: { ...suggestion.data, id: merchantId }
         });
-      }
-    } else {
-      // Fallback to type-based navigation
-      switch (suggestion.type) {
-        case 'category':
-          const categorySlug = suggestion.data.slug || suggestion.data.id || suggestion.data.name?.toLowerCase().replace(/\s+/g, '-');
-          (navigation as any).navigate('Category', {
-            categoryId: categorySlug,
-            categoryName: suggestion.data.name || suggestion.title,
-          });
-          break;
-        case 'merchant':
-          (navigation as any).navigate('MerchantDetail', {
-            merchant: suggestion.data,
-          });
-          break;
-        case 'location':
-        case 'discount':
-          (navigation as any).navigate('Search', {
-            suggestion: suggestion,
-          });
-          break;
-      }
+        break;
+        
+      case 'location':
+        // Navigate to search screen with location filter
+        console.log('Navigating to location search:', suggestion.title);
+        (navigation as any).navigate('Search', {
+          suggestion: suggestion,
+        });
+        break;
+        
+      default:
+        console.log('Unknown suggestion type:', suggestion.type);
+        break;
     }
   };
 
-  // Search function with API integration
+  // Search function using only API
   const performSearch = useCallback(async (query: string) => {
     if (query.trim().length === 0) {
       setSuggestions([]);
@@ -170,45 +122,40 @@ const SearchBar: React.FC<SearchBarProps> = ({
       return;
     }
 
-    console.log('SearchBar: Starting search for:', query);
+    console.log('SearchBar: Starting API search for:', query);
     setIsSearching(true);
 
     try {
-      // Try API search first
+      // Only use API search - no fallback to mock data
       const apiResults = await searchService.search(query);
       console.log('SearchBar: API search results:', apiResults);
       
       if (apiResults.results.length > 0) {
-        // Use API results
         const apiSuggestions = apiResults.results
           .slice(0, 8)
           .map(convertSearchResult);
         console.log('SearchBar: Converted API suggestions:', apiSuggestions);
         setSuggestions(apiSuggestions);
+        setShowSuggestions(true);
+        animateDropdown(true);
       } else {
-        // Fallback to local search
-        console.log('SearchBar: No API results, falling back to local search');
-        const localResults = fuse.search(query).slice(0, 8);
-        const localSuggestions = localResults.map(result => result.item);
-        console.log('SearchBar: Local suggestions:', localSuggestions);
-        setSuggestions(localSuggestions);
+        // No results from API
+        console.log('SearchBar: No API results found');
+        setSuggestions([]);
+        setShowSuggestions(false);
+        animateDropdown(false);
       }
       
-      setShowSuggestions(true);
-      animateDropdown(true);
     } catch (error) {
       console.error('SearchBar: Search error:', error);
-      // Fallback to local search on error
-      const localResults = fuse.search(query).slice(0, 8);
-      const localSuggestions = localResults.map(result => result.item);
-      console.log('SearchBar: Error fallback suggestions:', localSuggestions);
-      setSuggestions(localSuggestions);
-      setShowSuggestions(true);
-      animateDropdown(true);
+      // On error, show no suggestions instead of fallback
+      setSuggestions([]);
+      setShowSuggestions(false);
+      animateDropdown(false);
     } finally {
       setIsSearching(false);
     }
-  }, [fuse, animateDropdown]);
+  }, [animateDropdown]);
 
   // Debounced search
   useEffect(() => {
@@ -233,7 +180,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
     animateDropdown(false);
     searchInputRef.current?.blur();
     
-    // Navigate to the result
+    // Navigate to the result based on API type
     navigateToResult(suggestion);
     
     // Also call the original callback
@@ -279,10 +226,21 @@ const SearchBar: React.FC<SearchBarProps> = ({
           <Text style={styles.suggestionTitle}>{item.title}</Text>
           <Text style={styles.suggestionSubtitle}>{item.subtitle}</Text>
         </View>
-        <MaterialIcons name="north-west" size={16} color={Colors.textLight} />
+        <View style={styles.suggestionTypeContainer}>
+          <Text style={styles.suggestionType}>{item.type}</Text>
+          <MaterialIcons name="north-west" size={16} color={Colors.textLight} />
+        </View>
       </TouchableOpacity>
     );
   };
+
+  const renderNoResults = () => (
+    <View style={styles.noResultsContainer}>
+      <MaterialIcons name="search-off" size={24} color={Colors.textLight} />
+      <Text style={styles.noResultsText}>No results found</Text>
+      <Text style={styles.noResultsSubtext}>Try a different search term</Text>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
@@ -326,15 +284,21 @@ const SearchBar: React.FC<SearchBarProps> = ({
           },
         ]}
       >
-        {showSuggestions && suggestions.length > 0 && (
-          <FlatList
-            data={suggestions}
-            keyExtractor={(item) => item.id}
-            renderItem={renderSuggestion}
-            style={styles.suggestionsList}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          />
+        {showSuggestions && (
+          <>
+            {suggestions.length > 0 ? (
+              <FlatList
+                data={suggestions}
+                keyExtractor={(item) => item.id}
+                renderItem={renderSuggestion}
+                style={styles.suggestionsList}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              />
+            ) : (
+              searchQuery.trim().length > 0 && !isSearching && renderNoResults()
+            )}
+          </>
         )}
       </Animated.View>
     </View>
@@ -434,6 +398,33 @@ const styles = StyleSheet.create({
   suggestionSubtitle: {
     fontSize: 13,
     color: Colors.textLight,
+  },
+  suggestionTypeContainer: {
+    alignItems: 'flex-end',
+  },
+  suggestionType: {
+    fontSize: 11,
+    color: Colors.primary,
+    fontWeight: '500',
+    textTransform: 'capitalize',
+    marginBottom: 2,
+  },
+  noResultsContainer: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    paddingHorizontal: 16,
+  },
+  noResultsText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: Colors.text,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  noResultsSubtext: {
+    fontSize: 14,
+    color: Colors.textLight,
+    textAlign: 'center',
   },
 });
 

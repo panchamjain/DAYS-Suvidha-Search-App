@@ -17,13 +17,25 @@ const BranchCard: React.FC<BranchCardProps> = ({
   showCallButton = true, 
   showDirectionsButton = true 
 }) => {
+  // Safe access to branch properties with fallbacks
+  const branchName = branch?.name || 'Branch';
+  const branchAddress = branch?.address || 'Address not available';
+  const branchContact = branch?.contact || 'Contact not available';
+  const isMainBranch = branch?.isMainBranch || false;
+  const operatingHours = branch?.operatingHours || { weekdays: '', weekends: '' };
+  const amenities = branch?.amenities || [];
+
   const handleCall = () => {
-    Linking.openURL(`tel:${branch.contact}`);
+    if (branch?.contact) {
+      Linking.openURL(`tel:${branch.contact}`);
+    }
   };
 
   const handleDirections = () => {
-    const address = encodeURIComponent(branch.address);
-    Linking.openURL(`https://maps.google.com/?q=${address}`);
+    if (branch?.address) {
+      const address = encodeURIComponent(branch.address);
+      Linking.openURL(`https://maps.google.com/?q=${address}`);
+    }
   };
 
   return (
@@ -36,8 +48,8 @@ const BranchCard: React.FC<BranchCardProps> = ({
       <View style={styles.cardHeader}>
         <View style={styles.branchInfo}>
           <View style={styles.nameContainer}>
-            <Text style={styles.branchName}>{branch.name}</Text>
-            {branch.isMainBranch && (
+            <Text style={styles.branchName}>{branchName}</Text>
+            {isMainBranch && (
               <View style={styles.mainBadge}>
                 <Text style={styles.mainBadgeText}>Main</Text>
               </View>
@@ -46,38 +58,46 @@ const BranchCard: React.FC<BranchCardProps> = ({
           
           <View style={styles.addressContainer}>
             <MaterialIcons name="location-on" size={16} color={Colors.textLight} />
-            <Text style={styles.address}>{branch.address}</Text>
+            <Text style={styles.address}>{branchAddress}</Text>
           </View>
           
           <View style={styles.contactContainer}>
             <MaterialIcons name="phone" size={16} color={Colors.textLight} />
-            <Text style={styles.contact}>{branch.contact}</Text>
+            <Text style={styles.contact}>{branchContact}</Text>
           </View>
         </View>
       </View>
 
-      <View style={styles.hoursContainer}>
-        <View style={styles.hoursRow}>
-          <MaterialIcons name="access-time" size={16} color={Colors.primary} />
-          <View style={styles.hoursText}>
-            <Text style={styles.hoursLabel}>Weekdays:</Text>
-            <Text style={styles.hoursValue}>{branch.operatingHours.weekdays}</Text>
-          </View>
+      {/* Only show hours if they exist */}
+      {(operatingHours.weekdays || operatingHours.weekends) && (
+        <View style={styles.hoursContainer}>
+          {operatingHours.weekdays && (
+            <View style={styles.hoursRow}>
+              <MaterialIcons name="access-time" size={16} color={Colors.primary} />
+              <View style={styles.hoursText}>
+                <Text style={styles.hoursLabel}>Weekdays:</Text>
+                <Text style={styles.hoursValue}>{operatingHours.weekdays}</Text>
+              </View>
+            </View>
+          )}
+          {operatingHours.weekends && (
+            <View style={styles.hoursRow}>
+              <MaterialIcons name="event" size={16} color={Colors.primary} />
+              <View style={styles.hoursText}>
+                <Text style={styles.hoursLabel}>Weekends:</Text>
+                <Text style={styles.hoursValue}>{operatingHours.weekends}</Text>
+              </View>
+            </View>
+          )}
         </View>
-        <View style={styles.hoursRow}>
-          <MaterialIcons name="event" size={16} color={Colors.primary} />
-          <View style={styles.hoursText}>
-            <Text style={styles.hoursLabel}>Weekends:</Text>
-            <Text style={styles.hoursValue}>{branch.operatingHours.weekends}</Text>
-          </View>
-        </View>
-      </View>
+      )}
 
-      {branch.amenities.length > 0 && (
+      {/* Only show amenities if they exist */}
+      {amenities && amenities.length > 0 && (
         <View style={styles.amenitiesContainer}>
           <Text style={styles.amenitiesTitle}>Amenities:</Text>
           <View style={styles.amenitiesList}>
-            {branch.amenities.map((amenity, index) => (
+            {amenities.map((amenity, index) => (
               <View key={index} style={styles.amenityTag}>
                 <Text style={styles.amenityText}>{amenity}</Text>
               </View>
@@ -87,14 +107,14 @@ const BranchCard: React.FC<BranchCardProps> = ({
       )}
 
       <View style={styles.actionButtons}>
-        {showCallButton && (
+        {showCallButton && branch?.contact && (
           <TouchableOpacity style={styles.actionButton} onPress={handleCall}>
             <MaterialIcons name="phone" size={18} color={Colors.primary} />
             <Text style={styles.actionButtonText}>Call</Text>
           </TouchableOpacity>
         )}
         
-        {showDirectionsButton && (
+        {showDirectionsButton && branch?.address && (
           <TouchableOpacity style={styles.actionButton} onPress={handleDirections}>
             <MaterialIcons name="directions" size={18} color={Colors.secondary} />
             <Text style={[styles.actionButtonText, { color: Colors.secondary }]}>Directions</Text>

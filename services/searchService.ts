@@ -21,8 +21,13 @@ class SearchService {
     try {
       console.log('Searching for:', query);
       
-      // Make direct API call to avoid any service layer issues
+      // Make direct API call to get the most accurate response
       const response = await fetch(`https://www.daysahmedabad.com/api/search/?q=${encodeURIComponent(query)}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       const data = await response.json();
       
       console.log('Raw search API response:', data);
@@ -60,46 +65,49 @@ class SearchService {
               results.push(transformed);
             }
           });
-        }
-        
-        // Check for categorized response (merchants, categories, etc.)
-        const categoryKeys = ['merchants', 'categories', 'businesses', 'shops', 'stores'];
-        for (const key of categoryKeys) {
-          if (data[key] && Array.isArray(data[key])) {
-            console.log(`Processing ${key} array with`, data[key].length, 'items');
-            data[key].forEach((item: any, index: number) => {
-              const transformed = this.transformSearchItem(item, index, key);
-              if (transformed) {
-                console.log(`Transformed ${key} item ${index}:`, transformed);
-                results.push(transformed);
-              }
-            });
-          }
-        }
-        
-        // If no arrays found but object has properties that look like search results
-        if (results.length === 0) {
-          // Check if the response itself is a single result
-          if (data.id || data.name || data.title) {
-            console.log('Processing single object response');
-            const transformed = this.transformSearchItem(data, 0);
-            if (transformed) {
-              console.log('Transformed single object:', transformed);
-              results.push(transformed);
-            }
-          } else {
-            // Try to extract results from any property that contains objects with name/title
-            Object.keys(data).forEach((key, index) => {
-              const value = data[key];
-              if (value && typeof value === 'object' && (value.name || value.title)) {
-                console.log(`Processing object property ${key}`);
-                const transformed = this.transformSearchItem(value, index, key);
+        } else {
+          // Check for categorized response (merchants, categories, etc.)
+          const categoryKeys = ['merchants', 'categories', 'businesses', 'shops', 'stores', 'data'];
+          let foundResults = false;
+          
+          for (const key of categoryKeys) {
+            if (data[key] && Array.isArray(data[key])) {
+              console.log(`Processing ${key} array with`, data[key].length, 'items');
+              data[key].forEach((item: any, index: number) => {
+                const transformed = this.transformSearchItem(item, index, key);
                 if (transformed) {
-                  console.log(`Transformed property ${key}:`, transformed);
+                  console.log(`Transformed ${key} item ${index}:`, transformed);
                   results.push(transformed);
                 }
+              });
+              foundResults = true;
+            }
+          }
+          
+          // If no arrays found but object has properties that look like search results
+          if (!foundResults) {
+            // Check if the response itself is a single result
+            if (data.id || data.name || data.title) {
+              console.log('Processing single object response');
+              const transformed = this.transformSearchItem(data, 0);
+              if (transformed) {
+                console.log('Transformed single object:', transformed);
+                results.push(transformed);
               }
-            });
+            } else {
+              // Try to extract results from any property that contains objects with name/title
+              Object.keys(data).forEach((key, index) => {
+                const value = data[key];
+                if (value && typeof value === 'object' && (value.name || value.title)) {
+                  console.log(`Processing object property ${key}`);
+                  const transformed = this.transformSearchItem(value, index, key);
+                  if (transformed) {
+                    console.log(`Transformed property ${key}:`, transformed);
+                    results.push(transformed);
+                  }
+                }
+              });
+            }
           }
         }
       }
@@ -129,74 +137,113 @@ class SearchService {
     }
 
     // Extract title from various possible fields
-    const title = item.label || '';
+    const title = item.name || 
+                  item.title || 
+                  item.business_name || 
+                  item.merchant_name || 
+                  item.shop_name || 
+                  item.store_name ||
+                  item.category_name ||
+                  '';
     
     if (!title || title.trim() === '') {
       console.log('Skipping item without title:', item);
       return null;
     }
     
-    // Determine type and create appropriate subtitle
+    // Determine type based on API response structure and item properties
     let resultType: 'category' | 'merchant' | 'location' = 'merchant';
     let icon = 'store';
-    let subtitle = item.category_name;
+    let subtitle = 'Search Result';
     let url = item.url || item.link;
     
-    // Determine type based on context or item properties
-    if (context === 'categories' || 
-        item.category_id || 
-        item.is_category || 
-        item.type === 'category' ||
-        (item.slug && !item.address && !item.phone)) {
-      resultType = 'category';
-      icon = item.icon || 'category';
-      subtitle = 'Category';
-      
-      if (item.description) {
-        const desc = item.description.length > 40 
-          ? item.description.substring(0, 40) + '...' 
-          : item.description;
-        subtitle = `Category - ${desc}`;
+    // Check for explicit type field from API
+    if (item.type) {
+      switch (item.type.toLowerCase()) {
+        case 'category':
+          resultType = 'category';
+          break;
+        case 'merchant':
+        case 'business':
+        case 'shop':
+        case 'store':
+          resultType = 'merchant';
+          break;
+        case 'location':
+        case 'area':
+        case 'place':
+          resultType = 'location';
+          break;
       }
-      
-      // Generate category URL
-      if (!url && (item.slug || item.id)) {
-        url = `/category/${item.slug || item.id}`;
+    } else {
+      // Determine type based on context or item properties
+      if (context === 'categories' || 
+          item.category_id || 
+          item.is_category || 
+          item.slug && !item.address && !item.phone && !item.contact ||
+          item.icon && !item.address) {
+        resultType = 'category';
+      } else if (context === 'merchants' || 
+                 item.address || 
+                 item.phone || 
+                 item.contact || 
+                 item.branches || 
+                 item.branch_count || 
+                 item.discount || 
+                 item.rating ||
+                 item.business_type ||
+                 item.merchant_id) {
+        resultType = 'merchant';
+      } else if (item.area || 
+                 item.city || 
+                 item.location_type ||
+                 item.coordinates) {
+        resultType = 'location';
       }
-    } else if (context === 'merchants' || 
-               item.address || 
-               item.phone || 
-               item.contact || 
-               item.branches || 
-               item.branch_count || 
-               item.discount || 
-               item.rating ||
-               item.business_type) {
-      resultType = 'merchant';
-      icon = 'store';
-      
-      // Create descriptive subtitle
-      if (item.category_name) {
-        subtitle = `${item.category_name}`;
-      } else if (item.discount) {
-        subtitle = `Merchant - ${item.discount}`;
-      } else if (item.address) {
-        // Extract area from address
-        const addressParts = item.address.split(',');
-        const area = addressParts[0]?.trim();
-        subtitle = area ? `Merchant in ${area}` : 'Merchant';
-      } else {
-        subtitle = 'Merchant';
-      }
-      
-      // Generate merchant URL
-      if (!url && item.id) {
-        url = `/merchant/${item.id}`;
-      }
-    } else if (item.area || item.city || item.location_type) {
-      resultType = 'location';
-      icon = 'location-on';
-      subtitle = item.city ? `Location in ${item.city}` : 'Location';
+    }
+    
+    // Set appropriate icon and subtitle based on type
+    switch (resultType) {
+      case 'category':
+        icon = item.icon || 'category';
+        subtitle = 'Category';
+        if (item.description) {
+          const desc = item.description.length > 40 
+            ? item.description.substring(0, 40) + '...' 
+            : item.description;
+          subtitle = `Category - ${desc}`;
+        }
+        // Generate category URL if not provided
+        if (!url && (item.slug || item.id)) {
+          url = `/category/${item.slug || item.id}`;
+        }
+        break;
+        
+      case 'merchant':
+        icon = 'store';
+        // Create descriptive subtitle
+        if (item.category_name) {
+          subtitle = `${item.category_name}`;
+        } else if (item.discount) {
+          subtitle = `Merchant - ${item.discount}`;
+        } else if (item.address) {
+          // Extract area from address
+          const addressParts = item.address.split(',');
+          const area = addressParts[0]?.trim();
+          subtitle = area ? `Merchant in ${area}` : 'Merchant';
+        } else {
+          subtitle = 'Merchant';
+        }
+        // Generate merchant URL if not provided
+        if (!url && item.id) {
+          url = `/merchant/${item.id}`;
+        }
+        break;
+        
+      case 'location':
+        icon = 'location-on';
+        subtitle = item.city ? `Location in ${item.city}` : 'Location';
+        break;
     }
     
     const result = {
