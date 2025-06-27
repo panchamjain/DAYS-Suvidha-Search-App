@@ -32,9 +32,8 @@ const BranchCard: React.FC<BranchCardProps> = ({
   };
 
   const handleDirections = () => {
-    if (branch?.address) {
-      const address = encodeURIComponent(branch.location);
-      Linking.openURL(address);
+    if (branch?.location) {
+      Linking.openURL(branch.location);
     }
   };
 
