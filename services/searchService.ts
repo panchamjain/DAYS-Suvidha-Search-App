@@ -137,7 +137,7 @@ class SearchService {
     }
 
     // Extract title from various possible fields
-    const title = item.label || '';
+    const title = item.name || '';
     
     if (!title || title.trim() === '') {
       console.log('Skipping item without title:', item);
