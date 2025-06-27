@@ -19,7 +19,7 @@ const MerchantDetailScreen = () => {
   const [selectedTab, setSelectedTab] = useState<'overview' | 'branches'>('overview');
 
   // Safe access to merchant properties with fallbacks
-  const merchantName = merchant.name || 'Unknown Merchant';
+  const merchantName = merchant.label || 'Unknown Merchant';
   const merchantRating = typeof merchant.rating === 'number' ? merchant.rating : 0;
   const merchantDiscount = merchant.discount || 'No discount available';
   const merchantDescription = merchant.description || 'No description available';
