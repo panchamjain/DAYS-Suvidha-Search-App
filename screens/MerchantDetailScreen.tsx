@@ -207,7 +207,7 @@ const MerchantDetailScreen = () => {
               </View>
               <View style={styles.mainBranchContainer}>
                 <View style={styles.branchInfo}>
-                  <Text style={styles.branchName}>{(mainBranch as any).area || mainBranch.name || 'Main Branch'}</Text>
+                  <Text style={styles.branchName}>{mainBranch.area}</Text>
                   <View style={styles.branchDetail}>
                     <MaterialIcons name="location-on" size={16} color={Colors.textLight} />
                     <Text style={styles.branchAddress}>{mainBranch.address}</Text>

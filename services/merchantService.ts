@@ -43,7 +43,7 @@ class MerchantService {
     } catch (error) {
       console.error('Error fetching merchant by ID:', error);
       // Fallback to old API endpoint
-      return apiService.get<Merchant>(`/merchants/${id}/`);
+      return apiService.get<Merchant>(`/merchant/${id}/`);
     }
   }
 
