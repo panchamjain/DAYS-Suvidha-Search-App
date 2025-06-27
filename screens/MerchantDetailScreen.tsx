@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, StatusBar, ScrollView, TouchableOpacity, Linking, Platform } from 'react-native';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -8,34 +8,96 @@ import BranchCardSkeleton from '../components/BranchCardSkeleton';
 import Colors from '../constants/Colors';
 import { Merchant } from '../constants/MockData';
 import { useMerchantBranches } from '../hooks/useApi';
+import { merchantService } from '../services/merchantService';
 
 type MerchantDetailRouteParams = {
-  merchant: Merchant;
+  merchant?: Merchant;
+  merchantId?: string | number;
 };
 
 const MerchantDetailScreen = () => {
   const route = useRoute<RouteProp<Record<string, MerchantDetailRouteParams>, string>>();
-  const { merchant } = route.params;
+  const { merchant: initialMerchant, merchantId } = route.params;
+  
+  const [merchant, setMerchant] = useState<Merchant | null>(initialMerchant || null);
+  const [loading, setLoading] = useState(!initialMerchant);
+  const [error, setError] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState<'overview' | 'branches'>('overview');
 
+  // Fetch fresh merchant data if we only have an ID (from search suggestions)
+  useEffect(() => {
+    const fetchMerchantData = async () => {
+      if (!merchant && merchantId) {
+        console.log('Fetching fresh merchant data for ID:', merchantId);
+        setLoading(true);
+        setError(null);
+        
+        try {
+          const freshMerchantData = await merchantService.getMerchantById(merchantId);
+          console.log('Fresh merchant data received:', freshMerchantData);
+          setMerchant(freshMerchantData);
+        } catch (err) {
+          console.error('Error fetching merchant data:', err);
+          setError('Failed to load merchant details');
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchMerchantData();
+  }, [merchantId, merchant]);
+
   // Safe access to merchant properties with fallbacks
-  const merchantName = merchant.name || 'Unknown Merchant';
-  const merchantRating = typeof merchant.rating === 'number' ? merchant.rating : 0;
-  const merchantDiscount = merchant.discount || 'No discount available';
-  const merchantDescription = merchant.description || 'No description available';
-  const merchantAddress = merchant.address || 'Address not available';
-  const merchantContact = merchant.contact || '';
+  const merchantName = merchant?.name || 'Unknown Merchant';
+  const merchantRating = typeof merchant?.rating === 'number' ? merchant.rating : 0;
+  const merchantDiscount = merchant?.discount || 'No discount available';
+  const merchantDescription = merchant?.description || 'No description available';
+  const merchantAddress = merchant?.address || 'Address not available';
+  const merchantContact = merchant?.contact || '';
 
   // Fetch branches from API - ensure merchant.id is a number
-  const merchantId = typeof merchant.id === 'string' ? parseInt(merchant.id) : merchant.id;
-  const { data: branchData, loading: branchLoading, error: branchError } = useMerchantBranches(merchantId);
+  const merchantIdForBranches = merchant?.id ? (typeof merchant.id === 'string' ? parseInt(merchant.id) : merchant.id) : null;
+  const { data: branchData, loading: branchLoading, error: branchError } = useMerchantBranches(merchantIdForBranches);
 
-  // Mock discount types for the merchant
+  // Show loading state while fetching merchant data
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar backgroundColor={Colors.card} barStyle="dark-content" />
+        <Header title="Loading..." showBackButton />
+        
+        <View style={styles.loadingContainer}>
+          <MaterialIcons name="hourglass-empty" size={48} color={Colors.primary} />
+          <Text style={styles.loadingText}>Loading merchant details...</Text>
+          <Text style={styles.loadingSubtext}>Please wait while we fetch the latest information</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Show error state if merchant data failed to load
+  if (error || !merchant) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar backgroundColor={Colors.card} barStyle="dark-content" />
+        <Header title="Error" showBackButton />
+        
+        <View style={styles.errorContainer}>
+          <MaterialIcons name="error-outline" size={48} color={Colors.textLight} />
+          <Text style={styles.errorText}>Failed to load merchant</Text>
+          <Text style={styles.errorSubtext}>{error || 'Merchant not found'}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Create discount types from the fresh merchant data
   const discountTypes = [
     { type: 'Regular', description: merchantDiscount, icon: 'local-offer' },
-    { type: 'Weekend Special', description: '15% off on weekends', icon: 'event' },
-    { type: 'Family Package', description: '20% off for family visits', icon: 'people' },
-    { type: 'Student Discount', description: '12% off with student ID', icon: 'school' },
+    ...((merchant as any).weekend_discount ? [{ type: 'Weekend Special', description: (merchant as any).weekend_discount, icon: 'event' }] : []),
+    ...((merchant as any).family_discount ? [{ type: 'Family Package', description: (merchant as any).family_discount, icon: 'people' }] : []),
+    ...((merchant as any).student_discount ? [{ type: 'Student Discount', description: (merchant as any).student_discount, icon: 'school' }] : []),
   ];
 
   const branches = branchData?.results || [];
@@ -117,7 +179,7 @@ const MerchantDetailScreen = () => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <MaterialIcons name="local-offer" size={20} color={Colors.primary} />
-            <Text style={styles.sectionTitle}>Discount Types</Text>
+            <Text style={styles.sectionTitle}>Available Discounts</Text>
           </View>
           <View style={styles.discountTypesContainer}>
             {discountTypes.map((discount, index) => (
@@ -145,7 +207,7 @@ const MerchantDetailScreen = () => {
               </View>
               <View style={styles.mainBranchContainer}>
                 <View style={styles.branchInfo}>
-                  <Text style={styles.branchName}>{mainBranch.area}</Text>
+                  <Text style={styles.branchName}>{(mainBranch as any).area || mainBranch.name || 'Main Branch'}</Text>
                   <View style={styles.branchDetail}>
                     <MaterialIcons name="location-on" size={16} color={Colors.textLight} />
                     <Text style={styles.branchAddress}>{mainBranch.address}</Text>
@@ -301,6 +363,25 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  loadingText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.text,
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  loadingSubtext: {
+    fontSize: 14,
+    color: Colors.textLight,
+    textAlign: 'center',
   },
   merchantHeader: {
     alignItems: 'center',

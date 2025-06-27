@@ -24,9 +24,49 @@ class MerchantService {
     return apiService.get<MerchantListResponse>('/merchants/', filters);
   }
 
-  // Get merchant by ID
-  async getMerchantById(id: number): Promise<Merchant> {
-    return apiService.get<Merchant>(`/merchants/${id}/`);
+  // Get merchant by ID using the new API pattern
+  async getMerchantById(id: number | string): Promise<Merchant> {
+    console.log('Fetching merchant by ID:', id);
+    
+    try {
+      // Use the new API pattern: https://www.daysahmedabad.com/merchant/{id}/
+      const response = await fetch(`https://www.daysahmedabad.com/merchant/${id}/`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Fresh merchant data from API:', data);
+      
+      return data;
+    } catch (error) {
+      console.error('Error fetching merchant by ID:', error);
+      // Fallback to old API endpoint
+      return apiService.get<Merchant>(`/merchants/${id}/`);
+    }
+  }
+
+  // Get fresh merchant data by type and ID (supports both merchant and category)
+  async getMerchantByTypeAndId(type: 'merchant' | 'category', id: string | number): Promise<Merchant> {
+    console.log(`Fetching ${type} by ID:`, id);
+    
+    try {
+      // Use the new API pattern: https://www.daysahmedabad.com/{type}/{id}/
+      const response = await fetch(`https://www.daysahmedabad.com/${type}/${id}/`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log(`Fresh ${type} data from API:`, data);
+      
+      return data;
+    } catch (error) {
+      console.error(`Error fetching ${type} by ID:`, error);
+      throw error;
+    }
   }
 
   // Get merchants by category slug - handle different response formats

@@ -64,52 +64,83 @@ const SearchBar: React.FC<SearchBarProps> = ({
     url: result.url,
   });
 
-  // Navigate based on type and URL from API
+  // Parse URL and extract navigation parameters
+  const parseNavigationFromUrl = (url: string) => {
+    console.log('Parsing URL:', url);
+    
+    if (url.includes('/category/')) {
+      const categoryId = url.split('/category/')[1].split('/')[0]; // Handle potential query params
+      return { screen: 'Category', params: { categoryId } };
+    } else if (url.includes('/merchant/')) {
+      const merchantId = url.split('/merchant/')[1].split('/')[0]; // Handle potential query params
+      return { screen: 'MerchantDetail', params: { merchantId } };
+    } else if (url.includes('/business/')) {
+      const businessId = url.split('/business/')[1].split('/')[0];
+      return { screen: 'MerchantDetail', params: { merchantId: businessId } };
+    }
+    
+    return null;
+  };
+
+  // Navigate based on URL or type
   const navigateToResult = (suggestion: SearchSuggestion) => {
     console.log('Navigating to suggestion:', suggestion);
     
-    // Use the type from API to determine navigation
-    switch (suggestion.type) {
-      case 'category':
-        // Extract category ID from URL or use data
-        let categoryId = suggestion.data.slug || suggestion.data.id;
-        
-        if (suggestion.url && suggestion.url.includes('/category/')) {
-          categoryId = suggestion.url.split('/category/')[1];
-        }
-        
-        console.log('Navigating to category:', categoryId, suggestion.title);
-        (navigation as any).navigate('Category', { 
-          categoryId, 
-          categoryName: suggestion.title 
+    let navigationInfo = null;
+    
+    // First try to parse from URL if available
+    if (suggestion.url) {
+      navigationInfo = parseNavigationFromUrl(suggestion.url);
+    }
+    
+    // If URL parsing failed or no URL, use type-based navigation
+    if (!navigationInfo) {
+      switch (suggestion.type) {
+        case 'category':
+          const categoryId = suggestion.data.slug || suggestion.data.id || suggestion.data.name?.toLowerCase().replace(/\s+/g, '-');
+          navigationInfo = {
+            screen: 'Category',
+            params: { 
+              categoryId,
+              categoryName: suggestion.data.name || suggestion.title 
+            }
+          };
+          break;
+        case 'merchant':
+          navigationInfo = {
+            screen: 'MerchantDetail',
+            params: { 
+              merchantId: suggestion.data.id || suggestion.data.merchant_id || suggestion.data.business_id
+            }
+          };
+          break;
+        case 'location':
+          navigationInfo = {
+            screen: 'Search',
+            params: { suggestion }
+          };
+          break;
+      }
+    }
+    
+    // Navigate if we have valid navigation info
+    if (navigationInfo) {
+      console.log('Navigating to:', navigationInfo);
+      
+      if (navigationInfo.screen === 'Category') {
+        (navigation as any).navigate('Category', {
+          categoryId: navigationInfo.params.categoryId,
+          categoryName: navigationInfo.params.categoryName || suggestion.title,
         });
-        break;
-        
-      case 'merchant':
-        // Extract merchant ID from URL or use data
-        let merchantId = suggestion.data.id;
-        
-        if (suggestion.url && suggestion.url.includes('/merchant/')) {
-          merchantId = suggestion.url.split('/merchant/')[1];
-        }
-        
-        console.log('Navigating to merchant:', merchantId, suggestion.title);
-        (navigation as any).navigate('MerchantDetail', { 
-          merchant: { ...suggestion.data, id: merchantId }
+      } else if (navigationInfo.screen === 'MerchantDetail') {
+        (navigation as any).navigate('MerchantDetail', {
+          merchantId: navigationInfo.params.merchantId,
         });
-        break;
-        
-      case 'location':
-        // Navigate to search screen with location filter
-        console.log('Navigating to location search:', suggestion.title);
-        (navigation as any).navigate('Search', {
-          suggestion: suggestion,
-        });
-        break;
-        
-      default:
-        console.log('Unknown suggestion type:', suggestion.type);
-        break;
+      } else if (navigationInfo.screen === 'Search') {
+        (navigation as any).navigate('Search', navigationInfo.params);
+      }
+    } else {
+      console.warn('Could not determine navigation for suggestion:', suggestion);
     }
   };
 

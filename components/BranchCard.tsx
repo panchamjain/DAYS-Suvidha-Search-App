@@ -18,7 +18,7 @@ const BranchCard: React.FC<BranchCardProps> = ({
   showDirectionsButton = true 
 }) => {
   // Safe access to branch properties with fallbacks
-  const branchName = branch?.area;
+  const branchName = branch?.name || (branch as any)?.area || 'Branch';
   const branchAddress = branch?.address || 'Address not available';
   const branchContact = branch?.contact || 'Contact not available';
   const isMainBranch = branch?.isMainBranch || false;
@@ -32,8 +32,9 @@ const BranchCard: React.FC<BranchCardProps> = ({
   };
 
   const handleDirections = () => {
-    if (branch?.location) {
-      Linking.openURL(branch.location);
+    if (branch?.address) {
+      const address = encodeURIComponent(branch.address);
+      Linking.openURL(`https://maps.google.com/?q=${address}`);
     }
   };
 
