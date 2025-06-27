@@ -226,10 +226,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
           <Text style={styles.suggestionTitle}>{item.title}</Text>
           <Text style={styles.suggestionSubtitle}>{item.subtitle}</Text>
         </View>
-        <View style={styles.suggestionTypeContainer}>
-          <Text style={styles.suggestionType}>{item.type}</Text>
-          <MaterialIcons name="north-west" size={16} color={Colors.textLight} />
-        </View>
+        <MaterialIcons name="north-west" size={16} color={Colors.textLight} />
       </TouchableOpacity>
     );
   };

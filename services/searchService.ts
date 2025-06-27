@@ -157,9 +157,6 @@ class SearchService {
           resultType = 'category';
           break;
         case 'merchant':
-        case 'business':
-        case 'shop':
-        case 'store':
           resultType = 'merchant';
           break;
         case 'location':
