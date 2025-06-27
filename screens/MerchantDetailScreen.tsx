@@ -7,7 +7,6 @@ import BranchCard from '../components/BranchCard';
 import BranchCardSkeleton from '../components/BranchCardSkeleton';
 import Colors from '../constants/Colors';
 import { Merchant } from '../constants/MockData';
-import { useMerchantBranches } from '../hooks/useApi';
 import { merchantService } from '../services/merchantService';
 
 type MerchantDetailRouteParams = {
@@ -56,9 +55,10 @@ const MerchantDetailScreen = () => {
   const merchantAddress = merchant?.address || 'Address not available';
   const merchantContact = merchant?.contact || '';
 
-  // Fetch branches from API - ensure merchant.id is a number
-  const merchantIdForBranches = merchant?.id ? (typeof merchant.id === 'string' ? parseInt(merchant.id) : merchant.id) : null;
-  const { data: branchData, loading: branchLoading, error: branchError } = useMerchantBranches(merchantIdForBranches);
+  // Use branches from merchant data instead of making separate API call
+  const branches = merchant?.branches || (merchant as any)?.locations || [];
+  const branchLoading = loading; // Use the same loading state as merchant
+  const branchError = error; // Use the same error state as merchant
 
   // Show loading state while fetching merchant data
   if (loading) {
@@ -100,8 +100,7 @@ const MerchantDetailScreen = () => {
     ...((merchant as any).student_discount ? [{ type: 'Student Discount', description: (merchant as any).student_discount, icon: 'school' }] : []),
   ];
 
-  const branches = branchData?.results || [];
-  const mainBranch = branches.find(branch => branch.isMainBranch) || branches[0];
+  const mainBranch = branches.find((branch: any) => branch.isMainBranch || branch.is_main) || branches[0];
 
   const handleCall = (contact?: string) => {
     const phoneNumber = contact || merchantContact;
@@ -207,7 +206,7 @@ const MerchantDetailScreen = () => {
               </View>
               <View style={styles.mainBranchContainer}>
                 <View style={styles.branchInfo}>
-                  <Text style={styles.branchName}>{mainBranch.area}</Text>
+                  <Text style={styles.branchName}>{mainBranch.name || 'Main Branch'}</Text>
                   <View style={styles.branchDetail}>
                     <MaterialIcons name="location-on" size={16} color={Colors.textLight} />
                     <Text style={styles.branchAddress}>{mainBranch.address}</Text>
@@ -263,7 +262,7 @@ const MerchantDetailScreen = () => {
           <MaterialIcons name="error-outline" size={48} color={Colors.textLight} />
           <Text style={styles.errorText}>Failed to load branches</Text>
           <Text style={styles.errorSubtext}>Please try again later</Text>
-          <Text style={styles.debugText}>Error: {branchError.message}</Text>
+          <Text style={styles.debugText}>Error: {branchError}</Text>
         </View>
       );
     }
@@ -285,9 +284,9 @@ const MerchantDetailScreen = () => {
           <Text style={styles.branchesSubtitle}>Find the nearest location</Text>
         </View>
         
-        {branches.map((branch) => (
+        {branches.map((branch: any, index: number) => (
           <BranchCard
-            key={branch.id}
+            key={branch.id || index}
             branch={branch}
             showCallButton={true}
             showDirectionsButton={true}

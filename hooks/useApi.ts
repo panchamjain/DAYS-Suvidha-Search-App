@@ -68,9 +68,20 @@ export function useMerchantsByCategory(categorySlug: string, filters?: any): Use
   }, [categorySlug, filters]);
 }
 
-export function useMerchantBranches(merchantId: number): UseApiState<BranchListResponse> {
+export function useMerchantBranches(merchantId: number | null): UseApiState<BranchListResponse> {
   const { branchService } = require('../services/branchService');
-  return useApi<BranchListResponse>(() => branchService.getMerchantBranches(merchantId), [merchantId]);
+  return useApi<BranchListResponse>(() => {
+    if (!merchantId || isNaN(merchantId)) {
+      // Return empty result instead of making API call
+      return Promise.resolve({
+        count: 0,
+        next: null,
+        previous: null,
+        results: []
+      });
+    }
+    return branchService.getMerchantBranches(merchantId);
+  }, [merchantId]);
 }
 
 export function useMerchantDetail(merchantId: number) {

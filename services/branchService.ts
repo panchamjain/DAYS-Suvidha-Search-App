@@ -21,8 +21,14 @@ class BranchService {
     try {
       console.log('Fetching branches for merchant ID:', merchantId);
       
-      if (!merchantId || isNaN(merchantId)) {
-        throw new Error('Valid merchant ID is required');
+      if (!merchantId || isNaN(merchantId) || merchantId <= 0) {
+        console.warn('Invalid merchant ID provided:', merchantId);
+        return {
+          count: 0,
+          next: null,
+          previous: null,
+          results: []
+        };
       }
       
       const response = await apiService.get<any>(`/merchants/${merchantId}/branches/`, filters);
@@ -91,7 +97,13 @@ class BranchService {
       
     } catch (error) {
       console.error('Error fetching merchant branches:', error);
-      throw error;
+      // Return empty results instead of throwing error
+      return {
+        count: 0,
+        next: null,
+        previous: null,
+        results: []
+      };
     }
   }
 

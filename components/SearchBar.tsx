@@ -206,12 +206,18 @@ const SearchBar: React.FC<SearchBarProps> = ({
   }, [searchQuery, performSearch]);
 
   const handleSuggestionPress = (suggestion: SearchSuggestion) => {
-    setSearchQuery(suggestion.title);
+    console.log('SearchBar: Suggestion pressed:', suggestion);
+    
+    // Clear search and hide suggestions immediately to prevent new searches
     setShowSuggestions(false);
     animateDropdown(false);
     searchInputRef.current?.blur();
     
-    // Navigate to the result based on API type
+    // Clear the search query to prevent triggering new searches
+    setSearchQuery('');
+    setSuggestions([]);
+    
+    // Navigate to the result
     navigateToResult(suggestion);
     
     // Also call the original callback
