@@ -137,14 +137,7 @@ class SearchService {
     }
 
     // Extract title from various possible fields
-    const title = item.name || 
-                  item.title || 
-                  item.business_name || 
-                  item.merchant_name || 
-                  item.shop_name || 
-                  item.store_name ||
-                  item.category_name ||
-                  '';
+    const title = item.label || '';
     
     if (!title || title.trim() === '') {
       console.log('Skipping item without title:', item);
