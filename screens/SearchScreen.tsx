@@ -51,8 +51,8 @@ const SearchScreen = () => {
         // Create a proper merchant object for navigation
         const merchantData: Merchant = {
           id: suggestion.data.id || parseInt(suggestion.id),
-          name: suggestion.data.name || suggestion.title,
-          category: suggestion.data.category || suggestion.data.category_name,
+          name: suggestion.data.label,
+          category: suggestion.data.category_name,
           address: suggestion.data.address,
           contact: suggestion.data.contact || suggestion.data.phone,
           discount: suggestion.data.discount,
