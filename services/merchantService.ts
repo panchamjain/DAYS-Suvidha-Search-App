@@ -53,7 +53,7 @@ class MerchantService {
     
     try {
       // Use the new API pattern: https://www.daysahmedabad.com/{type}/{id}/
-      const response = await fetch(`https://www.daysahmedabad.com/${type}/${id}/`);
+      const response = await fetch(`https://www.daysahmedabad.com/api/${type}/${id}/`);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
