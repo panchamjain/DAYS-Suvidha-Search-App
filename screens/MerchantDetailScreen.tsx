@@ -60,6 +60,13 @@ const MerchantDetailScreen = () => {
   const branchLoading = loading; // Use the same loading state as merchant
   const branchError = error; // Use the same error state as merchant
 
+  // Log branch data for debugging
+  console.log('Merchant branches data:', {
+    merchantId: merchant?.id,
+    branchesCount: branches.length,
+    branches: branches
+  });
+
   // Show loading state while fetching merchant data
   if (loading) {
     return (
