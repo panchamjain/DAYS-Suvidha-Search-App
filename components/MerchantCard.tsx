@@ -15,7 +15,7 @@ const MerchantCard: React.FC<MerchantCardProps> = ({ merchant, onPress }) => {
   const merchantRating = typeof merchant.rating === 'number' ? merchant.rating : 0;
   const merchantDiscount = merchant.discount || 'No discount available';
   const merchantAddress = merchant.address || 'Address not available';
-  const merchantBranches = merchant.branch_count || 1;
+  const merchantBranches = merchant.totalBranches || merchant.branches?.length || 1;
   const merchantEstablished = merchant.establishedYear;
 
   return (

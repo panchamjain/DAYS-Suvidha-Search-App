@@ -16,8 +16,6 @@ import Header from '../components/Header';
 import Colors from '../constants/Colors';
 import { temples, Temple } from '../constants/TemplesData';
 
-const { width } = Dimensions.get('window');
-
 const TemplesScreen = () => {
   const navigation = useNavigation();
   const [searchQuery, setSearchQuery] = useState('');

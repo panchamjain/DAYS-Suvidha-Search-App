@@ -18,6 +18,7 @@ export default function App() {
       <StatusBar backgroundColor={Colors.card} barStyle="dark-content" />
       <NavigationContainer>
         <Stack.Navigator
+          id={undefined}
           initialRouteName="Home"
           screenOptions={{
             headerShown: false,
