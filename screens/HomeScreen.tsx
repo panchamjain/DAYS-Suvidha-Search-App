@@ -98,19 +98,24 @@ const HomeScreen = () => {
           <>
             <SearchBar onSuggestionPress={handleSuggestionPress} />
             
-            <View style={styles.banner}>
+            <TouchableOpacity 
+              style={styles.banner}
+              onPress={() => navigation.navigate('SuvidhaCardRegistration' as never)}
+              activeOpacity={0.8}
+            >
               <View style={styles.bannerContent}>
                 <View>
                   <Text style={styles.bannerTitle}>Suvidha Card</Text>
                   <Text style={styles.bannerSubtitle}>
                     Exclusive discounts across Ahmedabad
                   </Text>
+                  <Text style={styles.bannerAction}>Tap to apply now →</Text>
                 </View>
                 <View style={styles.bannerIconContainer}>
                   <MaterialIcons name="card-giftcard" size={40} color="white" />
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
 
             {/* DAYS Sections */}
             <View style={styles.sectionContainer}>
@@ -232,6 +237,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: 'rgba(255, 255, 255, 0.9)',
     maxWidth: '80%',
+  },
+  bannerAction: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 8,
+    fontWeight: '600',
   },
   bannerIconContainer: {
     width: 64,

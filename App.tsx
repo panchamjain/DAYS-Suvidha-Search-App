@@ -7,10 +7,28 @@ import CategoryScreen from './screens/CategoryScreen';
 import MerchantDetailScreen from './screens/MerchantDetailScreen';
 import SearchScreen from './screens/SearchScreen';
 import AboutScreen from './screens/AboutScreen';
+import TemplesScreen from './screens/TemplesScreen';
+import TempleDetailScreen from './screens/TempleDetailScreen';
+import DaysEventsScreen from './screens/DaysEventsScreen';
+import DaysNewsScreen from './screens/DaysNewsScreen';
+import SuvidhaCardRegistrationScreen from './screens/SuvidhaCardRegistrationScreen';
 import { StatusBar } from 'react-native';
 import Colors from './constants/Colors';
 
-const Stack = createNativeStackNavigator();
+type RootStackParamList = {
+  Home: undefined;
+  Category: { categoryId: string; categoryName: string };
+  MerchantDetail: { merchant: any };
+  Search: undefined;
+  About: undefined;
+  Temples: undefined;
+  TempleDetail: { temple: any };
+  DaysEvents: undefined;
+  DaysNews: undefined;
+  SuvidhaCardRegistration: undefined;
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
   return (
@@ -31,6 +49,11 @@ export default function App() {
           <Stack.Screen name="MerchantDetail" component={MerchantDetailScreen} />
           <Stack.Screen name="Search" component={SearchScreen} />
           <Stack.Screen name="About" component={AboutScreen} />
+          <Stack.Screen name="Temples" component={TemplesScreen} />
+          <Stack.Screen name="TempleDetail" component={TempleDetailScreen} />
+          <Stack.Screen name="DaysEvents" component={DaysEventsScreen} />
+          <Stack.Screen name="DaysNews" component={DaysNewsScreen} />
+          <Stack.Screen name="SuvidhaCardRegistration" component={SuvidhaCardRegistrationScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>
