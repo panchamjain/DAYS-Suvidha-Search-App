@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,163 +11,262 @@ import {
   Alert,
   Image,
   Animated,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { Calendar } from 'react-native-calendars';
 import Header from '../components/Header';
 import Colors from '../constants/Colors';
 
-interface Child {
+interface FormField {
   id: string;
   name: string;
-  dateOfBirth: string;
-  bloodGroup: string;
+  type: 'text' | 'email' | 'phone' | 'date' | 'select' | 'textarea' | 'file';
+  label: string;
+  placeholder?: string;
+  required: boolean;
+  options?: string[];
+  validation?: {
+    minLength?: number;
+    maxLength?: number;
+    pattern?: string;
+    message?: string;
+  };
+}
+
+interface FormSection {
+  id: string;
+  title: string;
+  icon: string;
+  fields: FormField[];
+  conditional?: {
+    dependsOn: string;
+    value: any;
+  };
+}
+
+interface FormSchema {
+  title: string;
+  description: string;
+  sections: FormSection[];
+}
+
+interface Child {
+  id: string;
+  [key: string]: any;
 }
 
 interface ValidationErrors {
-  name?: string;
-  dateOfBirth?: string;
-  gender?: string;
-  phoneNumber?: string;
-  email?: string;
-  address?: string;
-  pinCode?: string;
-  spouseName?: string;
-  spouseDateOfBirth?: string;
-  spouseBloodGroup?: string;
-  children?: { [key: string]: { name?: string; dateOfBirth?: string; bloodGroup?: string } };
+  [key: string]: string | { [key: string]: { [key: string]: string } };
 }
 
 const SuvidhaCardRegistrationScreen = () => {
   const navigation = useNavigation();
   
-  // Personal Information
-  const [name, setName] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('');
-  const [gender, setGender] = useState('');
-  const [bloodGroup, setBloodGroup] = useState('');
-  const [photo] = useState<string | null>(null);
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [email, setEmail] = useState('');
-  const [address, setAddress] = useState('');
-  const [pinCode, setPinCode] = useState('');
-  
-  // Marriage Information
-  const [isMarried, setIsMarried] = useState<boolean | null>(null);
-  const [spouseName, setSpouseName] = useState('');
-  const [spouseDateOfBirth, setSpouseDateOfBirth] = useState('');
-  const [spouseBloodGroup, setSpouseBloodGroup] = useState('');
-  
-  // Children Information
+  // Form schema and data
+  const [formSchema, setFormSchema] = useState<FormSchema | null>(null);
+  const [formData, setFormData] = useState<{ [key: string]: any }>({});
   const [children, setChildren] = useState<Child[]>([]);
-  
-  // Validation
+  const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Calendar modal state
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [selectedDateField, setSelectedDateField] = useState<string>('');
+  const [selectedChildId, setSelectedChildId] = useState<string>('');
 
-  const genderOptions = ['Male', 'Female', 'Other'];
-  const bloodGroupOptions = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+  // Fetch form schema from API
+  useEffect(() => {
+    fetchFormSchema();
+  }, []);
+
+  const fetchFormSchema = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('https://www.daysahmedabad.com/api/suvidha/form-schema/');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch form schema');
+      }
+      
+      const schema = await response.json();
+      setFormSchema(schema);
+      
+      // Initialize form data with empty values
+      const initialData: { [key: string]: any } = {};
+      schema.sections.forEach((section: FormSection) => {
+        section.fields.forEach((field: FormField) => {
+          initialData[field.id] = '';
+        });
+      });
+      setFormData(initialData);
+      
+    } catch (error) {
+      console.error('Error fetching form schema:', error);
+      Alert.alert(
+        'Error',
+        'Failed to load form. Please check your internet connection and try again.',
+        [{ text: 'Retry', onPress: fetchFormSchema }]
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Validation functions
-  const validateName = (value: string): string | undefined => {
-    if (!value.trim()) return 'Name is required';
-    if (value.trim().length < 2) return 'Name must be at least 2 characters';
-    if (!/^[a-zA-Z\s]+$/.test(value)) return 'Name can only contain letters and spaces';
-    return undefined;
-  };
+  const validateField = (field: FormField, value: any): string | undefined => {
+    if (field.required && (!value || value.toString().trim() === '')) {
+      return `${field.label} is required`;
+    }
 
-  const validateDateOfBirth = (value: string): string | undefined => {
-    if (!value.trim()) return 'Date of birth is required';
-    const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
-    if (!dateRegex.test(value)) return 'Please use DD/MM/YYYY format';
-    
-    const [, day, month, year] = value.match(dateRegex) || [];
-    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-    const today = new Date();
-    
-    if (date > today) return 'Date cannot be in the future';
-    if (today.getFullYear() - date.getFullYear() > 120) return 'Please enter a valid date';
-    
-    return undefined;
-  };
+    if (!value || value.toString().trim() === '') {
+      return undefined;
+    }
 
-  const validatePhoneNumber = (value: string): string | undefined => {
-    if (!value.trim()) return 'Phone number is required';
-    const phoneRegex = /^[6-9]\d{9}$/;
-    if (!phoneRegex.test(value.replace(/\s+/g, ''))) return 'Please enter a valid 10-digit mobile number';
-    return undefined;
-  };
+    const stringValue = value.toString().trim();
 
-  const validateEmail = (value: string): string | undefined => {
-    if (!value.trim()) return 'Email is required';
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(value)) return 'Please enter a valid email address';
-    return undefined;
-  };
-
-  const validateAddress = (value: string): string | undefined => {
-    if (!value.trim()) return 'Address is required';
-    if (value.trim().length < 10) return 'Please enter a complete address';
-    return undefined;
-  };
-
-  const validatePinCode = (value: string): string | undefined => {
-    if (!value.trim()) return 'Pin code is required';
-    if (!/^\d{6}$/.test(value)) return 'Pin code must be 6 digits';
-    return undefined;
-  };
-
-  const validateField = (field: string, value: string) => {
-    let error: string | undefined;
-    
-    switch (field) {
-      case 'name':
-        error = validateName(value);
-        break;
-      case 'dateOfBirth':
-        error = validateDateOfBirth(value);
-        break;
-      case 'phoneNumber':
-        error = validatePhoneNumber(value);
-        break;
+    // Type-specific validation
+    switch (field.type) {
       case 'email':
-        error = validateEmail(value);
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(stringValue)) {
+          return 'Please enter a valid email address';
+        }
         break;
-      case 'address':
-        error = validateAddress(value);
+      
+      case 'phone':
+        const phoneRegex = /^[6-9]\d{9}$/;
+        if (!phoneRegex.test(stringValue.replace(/\s+/g, ''))) {
+          return 'Please enter a valid 10-digit mobile number';
+        }
         break;
-      case 'pinCode':
-        error = validatePinCode(value);
-        break;
-      case 'spouseName':
-        error = isMarried ? validateName(value) : undefined;
-        break;
-      case 'spouseDateOfBirth':
-        error = isMarried ? validateDateOfBirth(value) : undefined;
+      
+      case 'date':
+        const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+        if (!dateRegex.test(stringValue)) {
+          return 'Please select a valid date';
+        }
+        
+        const [, day, month, year] = stringValue.match(dateRegex) || [];
+        const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+        const today = new Date();
+        
+        if (date > today) {
+          return 'Date cannot be in the future';
+        }
+        if (today.getFullYear() - date.getFullYear() > 120) {
+          return 'Please enter a valid date';
+        }
         break;
     }
-    
-    setErrors(prev => ({ ...prev, [field]: error }));
+
+    // Custom validation rules
+    if (field.validation) {
+      if (field.validation.minLength && stringValue.length < field.validation.minLength) {
+        return field.validation.message || `Minimum ${field.validation.minLength} characters required`;
+      }
+      
+      if (field.validation.maxLength && stringValue.length > field.validation.maxLength) {
+        return field.validation.message || `Maximum ${field.validation.maxLength} characters allowed`;
+      }
+      
+      if (field.validation.pattern) {
+        const regex = new RegExp(field.validation.pattern);
+        if (!regex.test(stringValue)) {
+          return field.validation.message || 'Invalid format';
+        }
+      }
+    }
+
+    return undefined;
   };
 
-  const handlePhotoUpload = () => {
-    Alert.alert(
-      'Upload Photo',
-      'Choose an option',
-      [
-        { text: 'Camera', onPress: () => console.log('Camera selected') },
-        { text: 'Gallery', onPress: () => console.log('Gallery selected') },
-        { text: 'Cancel', onPress: () => {} },
-      ]
-    );
+  const handleFieldChange = (fieldId: string, value: any, childId?: string) => {
+    if (childId) {
+      // Handle child field changes
+      setChildren(prev => prev.map(child => 
+        child.id === childId ? { ...child, [fieldId]: value } : child
+      ));
+      
+      // Validate child field
+      const field = getChildField(fieldId);
+      if (field) {
+        const error = validateField(field, value);
+        setErrors(prev => ({
+          ...prev,
+          children: {
+            ...((prev.children as { [key: string]: { [key: string]: string } }) || {}),
+            [childId]: {
+              ...((prev.children as { [key: string]: { [key: string]: string } })?.[childId] || {}),
+              [fieldId]: error || ''
+            }
+          }
+        }));
+      }
+    } else {
+      // Handle main form field changes
+      setFormData(prev => ({ ...prev, [fieldId]: value }));
+      
+      // Validate field
+      const field = getFieldById(fieldId);
+      if (field) {
+        const error = validateField(field, value);
+        setErrors(prev => ({ ...prev, [fieldId]: error || '' }));
+      }
+    }
+  };
+
+  const getFieldById = (fieldId: string): FormField | undefined => {
+    if (!formSchema) return undefined;
+    
+    for (const section of formSchema.sections) {
+      const field = section.fields.find(f => f.id === fieldId);
+      if (field) return field;
+    }
+    return undefined;
+  };
+
+  const getChildField = (fieldId: string): FormField | undefined => {
+    // Assuming child fields follow a pattern like 'child_name', 'child_dob', etc.
+    const baseFieldId = fieldId.replace('child_', '');
+    return getFieldById(baseFieldId) || {
+      id: fieldId,
+      name: fieldId,
+      type: fieldId.includes('dob') ? 'date' : fieldId.includes('blood') ? 'select' : 'text',
+      label: fieldId.replace('child_', '').replace('_', ' '),
+      required: true
+    } as FormField;
+  };
+
+  const handleDateSelect = (date: string) => {
+    const formattedDate = new Date(date).toLocaleDateString('en-GB');
+    
+    if (selectedChildId) {
+      handleFieldChange(selectedDateField, formattedDate, selectedChildId);
+    } else {
+      handleFieldChange(selectedDateField, formattedDate);
+    }
+    
+    setShowCalendar(false);
+    setSelectedDateField('');
+    setSelectedChildId('');
+  };
+
+  const openCalendar = (fieldId: string, childId?: string) => {
+    setSelectedDateField(fieldId);
+    setSelectedChildId(childId || '');
+    setShowCalendar(true);
   };
 
   const addChild = () => {
     const newChild: Child = {
       id: Date.now().toString(),
-      name: '',
-      dateOfBirth: '',
-      bloodGroup: '',
+      child_name: '',
+      child_dob: '',
+      child_blood_group: '',
     };
     setChildren([...children, newChild]);
   };
@@ -177,70 +276,60 @@ const SuvidhaCardRegistrationScreen = () => {
     // Remove child errors
     setErrors(prev => {
       const newErrors = { ...prev };
-      if (newErrors.children) {
-        delete newErrors.children[id];
+      if (newErrors.children && typeof newErrors.children === 'object') {
+        delete (newErrors.children as { [key: string]: any })[id];
       }
       return newErrors;
     });
   };
 
-  const updateChild = (id: string, field: keyof Child, value: string) => {
-    setChildren(children.map(child => 
-      child.id === id ? { ...child, [field]: value } : child
-    ));
+  const shouldShowSection = (section: FormSection): boolean => {
+    if (!section.conditional) return true;
     
-    // Validate child field
-    if (field === 'name') {
-      const error = validateName(value);
-      setErrors(prev => ({
-        ...prev,
-        children: {
-          ...prev.children,
-          [id]: { ...prev.children?.[id], name: error }
-        }
-      }));
-    } else if (field === 'dateOfBirth') {
-      const error = validateDateOfBirth(value);
-      setErrors(prev => ({
-        ...prev,
-        children: {
-          ...prev.children,
-          [id]: { ...prev.children?.[id], dateOfBirth: error }
-        }
-      }));
-    }
+    const dependentValue = formData[section.conditional.dependsOn];
+    return dependentValue === section.conditional.value;
   };
 
   const handleSubmit = async () => {
+    if (!formSchema) return;
+    
     setIsSubmitting(true);
     
     // Validate all fields
     const newErrors: ValidationErrors = {};
+    let hasErrors = false;
     
-    newErrors.name = validateName(name);
-    newErrors.dateOfBirth = validateDateOfBirth(dateOfBirth);
-    if (!gender) newErrors.gender = 'Please select gender';
-    newErrors.phoneNumber = validatePhoneNumber(phoneNumber);
-    newErrors.email = validateEmail(email);
-    newErrors.address = validateAddress(address);
-    newErrors.pinCode = validatePinCode(pinCode);
-    
-    if (isMarried) {
-      newErrors.spouseName = validateName(spouseName);
-      newErrors.spouseDateOfBirth = validateDateOfBirth(spouseDateOfBirth);
-      if (!spouseBloodGroup) newErrors.spouseBloodGroup = 'Please select blood group';
-    }
+    // Validate main form fields
+    formSchema.sections.forEach(section => {
+      if (shouldShowSection(section)) {
+        section.fields.forEach(field => {
+          const error = validateField(field, formData[field.id]);
+          if (error) {
+            newErrors[field.id] = error;
+            hasErrors = true;
+          }
+        });
+      }
+    });
     
     // Validate children
-    const childrenErrors: { [key: string]: { name?: string; dateOfBirth?: string; bloodGroup?: string } } = {};
+    const childrenErrors: { [key: string]: { [key: string]: string } } = {};
     children.forEach(child => {
-      const childError: { name?: string; dateOfBirth?: string; bloodGroup?: string } = {};
-      childError.name = validateName(child.name);
-      childError.dateOfBirth = validateDateOfBirth(child.dateOfBirth);
-      if (!child.bloodGroup) childError.bloodGroup = 'Please select blood group';
+      const childErrors: { [key: string]: string } = {};
       
-      if (childError.name || childError.dateOfBirth || childError.bloodGroup) {
-        childrenErrors[child.id] = childError;
+      ['child_name', 'child_dob', 'child_blood_group'].forEach(fieldId => {
+        const field = getChildField(fieldId);
+        if (field) {
+          const error = validateField(field, child[fieldId]);
+          if (error) {
+            childErrors[fieldId] = error;
+            hasErrors = true;
+          }
+        }
+      });
+      
+      if (Object.keys(childErrors).length > 0) {
+        childrenErrors[child.id] = childErrors;
       }
     });
     
@@ -248,22 +337,15 @@ const SuvidhaCardRegistrationScreen = () => {
       newErrors.children = childrenErrors;
     }
     
-    // Remove undefined errors
-    Object.keys(newErrors).forEach(key => {
-      if (!newErrors[key as keyof ValidationErrors]) {
-        delete newErrors[key as keyof ValidationErrors];
-      }
-    });
-    
     setErrors(newErrors);
     
-    if (Object.keys(newErrors).length > 0) {
+    if (hasErrors) {
       setIsSubmitting(false);
       Alert.alert('Validation Error', 'Please fix the errors in the form');
       return;
     }
 
-    // Simulate API call
+    // Simulate API submission
     setTimeout(() => {
       setIsSubmitting(false);
       Alert.alert(
@@ -274,152 +356,198 @@ const SuvidhaCardRegistrationScreen = () => {
     }, 2000);
   };
 
-  const renderDropdown = (
-    value: string,
-    onSelect: (value: string) => void,
-    options: string[],
-    placeholder: string,
-    error?: string
-  ) => (
-    <View>
-      <TouchableOpacity
-        style={[
-          styles.dropdownContainer,
-          error && styles.inputError,
-          value && styles.inputFilled
-        ]}
-        onPress={() => {
-          Alert.alert(
-            'Select ' + placeholder,
-            '',
-            options.map(option => ({
-              text: option,
-              onPress: () => onSelect(option),
-            })).concat([{ text: 'Cancel', onPress: () => {} }])
-          );
-        }}
-      >
-        <Text style={[
-          styles.dropdownText, 
-          !value && styles.placeholderText,
-          value && styles.filledText
-        ]}>
-          {value || placeholder}
-        </Text>
-        <MaterialIcons 
-          name="arrow-drop-down" 
-          size={24} 
-          color={error ? Colors.error : value ? Colors.primary : Colors.textLight} 
-        />
-      </TouchableOpacity>
-      {error && (
-        <View style={styles.errorContainer}>
-          <MaterialIcons name="error-outline" size={16} color={Colors.error} />
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      )}
-    </View>
-  );
-
   const renderInput = (
+    field: FormField,
     value: string,
-    onChangeText: (text: string) => void,
-    placeholder: string,
     error?: string,
-    keyboardType?: any,
-    multiline?: boolean,
-    maxLength?: number,
-    autoCapitalize?: any,
-    onBlur?: () => void
-  ) => (
-    <View>
-      <TextInput
-        style={[
-          styles.input,
-          multiline && styles.textArea,
-          error && styles.inputError,
-          value && styles.inputFilled
-        ]}
-        value={value}
-        onChangeText={onChangeText}
-        onBlur={onBlur}
-        placeholder={placeholder}
-        placeholderTextColor={Colors.textLight}
-        keyboardType={keyboardType}
-        multiline={multiline}
-        numberOfLines={multiline ? 3 : 1}
-        maxLength={maxLength}
-        autoCapitalize={autoCapitalize}
-      />
-      {error && (
-        <View style={styles.errorContainer}>
-          <MaterialIcons name="error-outline" size={16} color={Colors.error} />
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      )}
-    </View>
-  );
+    childId?: string
+  ) => {
+    const handleChange = (text: string) => {
+      handleFieldChange(field.id, text, childId);
+    };
 
-  const renderMarriageToggle = () => (
-    <View style={styles.toggleContainer}>
-      <Text style={styles.label}>Marital Status *</Text>
-      <View style={styles.toggleButtons}>
-        <TouchableOpacity
-          style={[
-            styles.toggleButton,
-            isMarried === true && styles.toggleButtonActive,
-          ]}
+    const handleBlur = () => {
+      const fieldError = validateField(field, value);
+      if (childId) {
+        setErrors(prev => ({
+          ...prev,
+          children: {
+            ...((prev.children as { [key: string]: { [key: string]: string } }) || {}),
+            [childId]: {
+              ...((prev.children as { [key: string]: { [key: string]: string } })?.[childId] || {}),
+              [field.id]: fieldError || ''
+            }
+          }
+        }));
+      } else {
+        setErrors(prev => ({ ...prev, [field.id]: fieldError || '' }));
+      }
+    };
+
+    if (field.type === 'date') {
+      return (
+        <View>
+          <TouchableOpacity
+            style={[
+              styles.input,
+              error && styles.inputError,
+              value && styles.inputFilled
+            ]}
+            onPress={() => openCalendar(field.id, childId)}
+          >
+            <Text style={[
+              styles.inputText,
+              !value && styles.placeholderText,
+              value && styles.filledText
+            ]}>
+              {value || field.placeholder || 'Select date'}
+            </Text>
+            <MaterialIcons 
+              name="calendar-today" 
+              size={20} 
+              color={error ? Colors.error : value ? Colors.primary : Colors.textLight} 
+            />
+          </TouchableOpacity>
+          {error && (
+            <View style={styles.errorContainer}>
+              <MaterialIcons name="error-outline" size={16} color={Colors.error} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+        </View>
+      );
+    }
+
+    if (field.type === 'select') {
+      return (
+        <View>
+          <TouchableOpacity
+            style={[
+              styles.input,
+              error && styles.inputError,
+              value && styles.inputFilled
+            ]}
+            onPress={() => {
+              if (field.options) {
+                Alert.alert(
+                  `Select ${field.label}`,
+                  '',
+                  field.options.map(option => ({
+                    text: option,
+                    onPress: () => handleChange(option),
+                  })).concat([{ text: 'Cancel', onPress: () => {} }])
+                );
+              }
+            }}
+          >
+            <Text style={[
+              styles.inputText,
+              !value && styles.placeholderText,
+              value && styles.filledText
+            ]}>
+              {value || field.placeholder || `Select ${field.label}`}
+            </Text>
+            <MaterialIcons 
+              name="arrow-drop-down" 
+              size={24} 
+              color={error ? Colors.error : value ? Colors.primary : Colors.textLight} 
+            />
+          </TouchableOpacity>
+          {error && (
+            <View style={styles.errorContainer}>
+              <MaterialIcons name="error-outline" size={16} color={Colors.error} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+        </View>
+      );
+    }
+
+    if (field.type === 'file') {
+      return (
+        <TouchableOpacity 
+          style={styles.photoUpload} 
           onPress={() => {
-            setIsMarried(true);
-            setErrors(prev => ({ ...prev, gender: undefined }));
+            Alert.alert(
+              'Upload Photo',
+              'Choose an option',
+              [
+                { text: 'Camera', onPress: () => console.log('Camera selected') },
+                { text: 'Gallery', onPress: () => console.log('Gallery selected') },
+                { text: 'Cancel', onPress: () => {} },
+              ]
+            );
           }}
         >
-          <MaterialIcons 
-            name="favorite" 
-            size={20} 
-            color={isMarried === true ? 'white' : Colors.textLight} 
-          />
-          <Text style={[
-            styles.toggleButtonText,
-            isMarried === true && styles.toggleButtonTextActive,
-          ]}>
-            Married
-          </Text>
+          {value ? (
+            <Image source={{ uri: value }} style={styles.photoPreview} />
+          ) : (
+            <View style={styles.photoUploadContent}>
+              <View style={styles.photoIconContainer}>
+                <MaterialIcons name="camera-alt" size={28} color={Colors.primary} />
+              </View>
+              <Text style={styles.photoUploadText}>Tap to upload photo</Text>
+              <Text style={styles.photoUploadSubtext}>JPG, PNG up to 5MB</Text>
+            </View>
+          )}
         </TouchableOpacity>
-        <TouchableOpacity
+      );
+    }
+
+    return (
+      <View>
+        <TextInput
           style={[
-            styles.toggleButton,
-            isMarried === false && styles.toggleButtonActive,
+            styles.input,
+            field.type === 'textarea' && styles.textArea,
+            error && styles.inputError,
+            value && styles.inputFilled
           ]}
-          onPress={() => {
-            setIsMarried(false);
-            setSpouseName('');
-            setSpouseDateOfBirth('');
-            setSpouseBloodGroup('');
-            setErrors(prev => {
-              const newErrors = { ...prev };
-              delete newErrors.spouseName;
-              delete newErrors.spouseDateOfBirth;
-              delete newErrors.spouseBloodGroup;
-              return newErrors;
-            });
-          }}
-        >
-          <MaterialIcons 
-            name="person" 
-            size={20} 
-            color={isMarried === false ? 'white' : Colors.textLight} 
-          />
-          <Text style={[
-            styles.toggleButtonText,
-            isMarried === false && styles.toggleButtonTextActive,
-          ]}>
-            Single
-          </Text>
-        </TouchableOpacity>
+          value={value}
+          onChangeText={handleChange}
+          onBlur={handleBlur}
+          placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+          placeholderTextColor={Colors.textLight}
+          keyboardType={
+            field.type === 'email' ? 'email-address' :
+            field.type === 'phone' ? 'phone-pad' : 'default'
+          }
+          multiline={field.type === 'textarea'}
+          numberOfLines={field.type === 'textarea' ? 3 : 1}
+          maxLength={field.validation?.maxLength}
+          autoCapitalize={field.type === 'email' ? 'none' : 'words'}
+        />
+        {error && (
+          <View style={styles.errorContainer}>
+            <MaterialIcons name="error-outline" size={16} color={Colors.error} />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
       </View>
-    </View>
-  );
+    );
+  };
+
+  const renderSection = (section: FormSection) => {
+    if (!shouldShowSection(section)) return null;
+
+    return (
+      <View key={section.id} style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <MaterialIcons name={section.icon as any} size={24} color={Colors.primary} />
+          <Text style={styles.sectionTitle}>{section.title}</Text>
+        </View>
+        
+        {section.fields.map(field => (
+          <View key={field.id} style={styles.inputGroup}>
+            <Text style={styles.label}>
+              {field.label} {field.required && '*'}
+            </Text>
+            {renderInput(field, formData[field.id] || '', errors[field.id] as string)}
+          </View>
+        ))}
+      </View>
+    );
+  };
 
   const renderChildCard = (child: Child, index: number) => (
     <Animated.View key={child.id} style={styles.childCard}>
@@ -439,45 +567,71 @@ const SuvidhaCardRegistrationScreen = () => {
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Child&apos;s Name *</Text>
         {renderInput(
-          child.name,
-          (text) => updateChild(child.id, 'name', text),
-          "Enter child's name",
-          errors.children?.[child.id]?.name,
-          'default',
-          false,
-          50,
-          'words',
-          () => validateField('name', child.name)
+          { id: 'child_name', name: 'child_name', type: 'text', label: 'Child Name', required: true },
+          child.child_name || '',
+          ((errors.children as { [key: string]: { [key: string]: string } })?.[child.id]?.child_name),
+          child.id
         )}
       </View>
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Date of Birth *</Text>
         {renderInput(
-          child.dateOfBirth,
-          (text) => updateChild(child.id, 'dateOfBirth', text),
-          'DD/MM/YYYY',
-          errors.children?.[child.id]?.dateOfBirth,
-          'numeric',
-          false,
-          10,
-          'none',
-          () => validateField('dateOfBirth', child.dateOfBirth)
+          { id: 'child_dob', name: 'child_dob', type: 'date', label: 'Date of Birth', required: true },
+          child.child_dob || '',
+          ((errors.children as { [key: string]: { [key: string]: string } })?.[child.id]?.child_dob),
+          child.id
         )}
       </View>
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Blood Group *</Text>
-        {renderDropdown(
-          child.bloodGroup,
-          (value) => updateChild(child.id, 'bloodGroup', value),
-          bloodGroupOptions,
-          'Select blood group',
-          errors.children?.[child.id]?.bloodGroup
+        {renderInput(
+          { 
+            id: 'child_blood_group', 
+            name: 'child_blood_group', 
+            type: 'select', 
+            label: 'Blood Group', 
+            required: true,
+            options: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
+          },
+          child.child_blood_group || '',
+          ((errors.children as { [key: string]: { [key: string]: string } })?.[child.id]?.child_blood_group),
+          child.id
         )}
       </View>
     </Animated.View>
   );
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar backgroundColor={Colors.primary} barStyle="light-content" />
+        <Header title="Suvidha Card Registration" showBackButton />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Loading form...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!formSchema) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar backgroundColor={Colors.primary} barStyle="light-content" />
+        <Header title="Suvidha Card Registration" showBackButton />
+        <View style={styles.errorContainer}>
+          <MaterialIcons name="error-outline" size={64} color={Colors.error} />
+          <Text style={styles.errorTitle}>Failed to Load Form</Text>
+          <Text style={styles.errorMessage}>Please check your internet connection and try again.</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchFormSchema}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -495,10 +649,8 @@ const SuvidhaCardRegistrationScreen = () => {
                 </View>
                 <View style={styles.cardIconRing} />
               </View>
-              <Text style={styles.headerTitle}>DAYS Suvidha Card</Text>
-              <Text style={styles.headerSubtitle}>
-                Join thousands of members enjoying exclusive discounts across Ahmedabad
-              </Text>
+              <Text style={styles.headerTitle}>{formSchema.title}</Text>
+              <Text style={styles.headerSubtitle}>{formSchema.description}</Text>
               <View style={styles.benefitsContainer}>
                 <View style={styles.benefitItem}>
                   <MaterialIcons name="local-offer" size={16} color="rgba(255,255,255,0.9)" />
@@ -512,221 +664,33 @@ const SuvidhaCardRegistrationScreen = () => {
             </View>
           </View>
 
-          {/* Personal Information */}
+          {/* Dynamic Form Sections */}
+          {formSchema.sections.map(renderSection)}
+
+          {/* Children Section */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <MaterialIcons name="person" size={24} color={Colors.primary} />
-              <Text style={styles.sectionTitle}>Personal Information</Text>
+              <MaterialIcons name="child-care" size={24} color={Colors.primary} />
+              <Text style={styles.sectionTitle}>Children Details</Text>
             </View>
             
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Full Name *</Text>
-              {renderInput(
-                name,
-                setName,
-                'Enter your full name',
-                errors.name,
-                'default',
-                false,
-                50,
-                'words',
-                () => validateField('name', name)
-              )}
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Date of Birth *</Text>
-              {renderInput(
-                dateOfBirth,
-                setDateOfBirth,
-                'DD/MM/YYYY',
-                errors.dateOfBirth,
-                'numeric',
-                false,
-                10,
-                'none',
-                () => validateField('dateOfBirth', dateOfBirth)
-              )}
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Gender *</Text>
-              {renderDropdown(gender, setGender, genderOptions, 'Select gender', errors.gender)}
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Blood Group</Text>
-              {renderDropdown(bloodGroup, setBloodGroup, bloodGroupOptions, 'Select blood group (optional)')}
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Photo Upload</Text>
-              <TouchableOpacity style={styles.photoUpload} onPress={handlePhotoUpload}>
-                {photo ? (
-                  <Image source={{ uri: photo }} style={styles.photoPreview} />
-                ) : (
-                  <View style={styles.photoUploadContent}>
-                    <View style={styles.photoIconContainer}>
-                      <MaterialIcons name="camera-alt" size={28} color={Colors.primary} />
-                    </View>
-                    <Text style={styles.photoUploadText}>Tap to upload photo</Text>
-                    <Text style={styles.photoUploadSubtext}>JPG, PNG up to 5MB</Text>
-                  </View>
-                )}
+            <View style={styles.childrenHeader}>
+              <Text style={styles.subsectionTitle}>Add Children Information</Text>
+              <TouchableOpacity style={styles.addChildButton} onPress={addChild}>
+                <MaterialIcons name="add" size={18} color="white" />
+                <Text style={styles.addChildText}>Add Child</Text>
               </TouchableOpacity>
             </View>
-          </View>
 
-          {/* Contact Information */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <MaterialIcons name="contact-phone" size={24} color={Colors.primary} />
-              <Text style={styles.sectionTitle}>Contact Information</Text>
-            </View>
+            {children.map((child, index) => renderChildCard(child, index))}
             
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Phone Number *</Text>
-              {renderInput(
-                phoneNumber,
-                setPhoneNumber,
-                'Enter 10-digit mobile number',
-                errors.phoneNumber,
-                'phone-pad',
-                false,
-                10,
-                'none',
-                () => validateField('phoneNumber', phoneNumber)
-              )}
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email Address *</Text>
-              {renderInput(
-                email,
-                setEmail,
-                'Enter your email address',
-                errors.email,
-                'email-address',
-                false,
-                100,
-                'none',
-                () => validateField('email', email)
-              )}
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Full Address *</Text>
-              {renderInput(
-                address,
-                setAddress,
-                'Enter your complete address with landmark',
-                errors.address,
-                'default',
-                true,
-                200,
-                'sentences',
-                () => validateField('address', address)
-              )}
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Pin Code *</Text>
-              {renderInput(
-                pinCode,
-                setPinCode,
-                'Enter 6-digit pin code',
-                errors.pinCode,
-                'numeric',
-                false,
-                6,
-                'none',
-                () => validateField('pinCode', pinCode)
-              )}
-            </View>
-          </View>
-
-          {/* Family Information */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <MaterialIcons name="family-restroom" size={24} color={Colors.primary} />
-              <Text style={styles.sectionTitle}>Family Information</Text>
-            </View>
-            
-            {renderMarriageToggle()}
-
-            {isMarried && (
-              <Animated.View style={styles.spouseSection}>
-                <View style={styles.subsectionHeader}>
-                  <MaterialIcons name="favorite" size={20} color={Colors.secondary} />
-                  <Text style={styles.subsectionTitle}>Spouse Details</Text>
-                </View>
-                
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Spouse&apos;s Name *</Text>
-                  {renderInput(
-                    spouseName,
-                    setSpouseName,
-                    "Enter spouse's name",
-                    errors.spouseName,
-                    'default',
-                    false,
-                    50,
-                    'words',
-                    () => validateField('spouseName', spouseName)
-                  )}
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Spouse&apos;s Date of Birth *</Text>
-                  {renderInput(
-                    spouseDateOfBirth,
-                    setSpouseDateOfBirth,
-                    'DD/MM/YYYY',
-                    errors.spouseDateOfBirth,
-                    'numeric',
-                    false,
-                    10,
-                    'none',
-                    () => validateField('spouseDateOfBirth', spouseDateOfBirth)
-                  )}
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Spouse&apos;s Blood Group *</Text>
-                  {renderDropdown(
-                    spouseBloodGroup,
-                    setSpouseBloodGroup,
-                    bloodGroupOptions,
-                    'Select blood group',
-                    errors.spouseBloodGroup
-                  )}
-                </View>
-              </Animated.View>
-            )}
-
-            {/* Children Section */}
-            <View style={styles.childrenSection}>
-              <View style={styles.childrenHeader}>
-                <View style={styles.subsectionHeader}>
-                  <MaterialIcons name="child-care" size={20} color={Colors.info} />
-                  <Text style={styles.subsectionTitle}>Children Details</Text>
-                </View>
-                <TouchableOpacity style={styles.addChildButton} onPress={addChild}>
-                  <MaterialIcons name="add" size={18} color="white" />
-                  <Text style={styles.addChildText}>Add Child</Text>
-                </TouchableOpacity>
+            {children.length === 0 && (
+              <View style={styles.emptyChildrenContainer}>
+                <MaterialIcons name="child-friendly" size={48} color={Colors.textLight} />
+                <Text style={styles.emptyChildrenText}>No children added yet</Text>
+                <Text style={styles.emptyChildrenSubtext}>Tap &quot;Add Child&quot; to include children details</Text>
               </View>
-
-              {children.map((child, index) => renderChildCard(child, index))}
-              
-              {children.length === 0 && (
-                <View style={styles.emptyChildrenContainer}>
-                  <MaterialIcons name="child-friendly" size={48} color={Colors.textLight} />
-                  <Text style={styles.emptyChildrenText}>No children added yet</Text>
-                  <Text style={styles.emptyChildrenSubtext}>Tap "Add Child" to include children details</Text>
-                </View>
-              )}
-            </View>
+            )}
           </View>
 
           {/* Submit Button */}
@@ -737,7 +701,7 @@ const SuvidhaCardRegistrationScreen = () => {
           >
             {isSubmitting ? (
               <View style={styles.submitButtonContent}>
-                <MaterialIcons name="hourglass-empty" size={24} color="white" />
+                <ActivityIndicator size={24} color="white" />
                 <Text style={styles.submitButtonText}>Submitting...</Text>
               </View>
             ) : (
@@ -751,6 +715,50 @@ const SuvidhaCardRegistrationScreen = () => {
           <View style={styles.bottomSpacing} />
         </View>
       </ScrollView>
+
+      {/* Calendar Modal */}
+      <Modal
+        visible={showCalendar}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowCalendar(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.calendarModal}>
+            <View style={styles.calendarHeader}>
+              <Text style={styles.calendarTitle}>Select Date</Text>
+              <TouchableOpacity
+                onPress={() => setShowCalendar(false)}
+                style={styles.closeButton}
+              >
+                <MaterialIcons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+            <Calendar
+              onDayPress={(day) => handleDateSelect(day.dateString)}
+              maxDate={new Date().toISOString().split('T')[0]}
+              theme={{
+                backgroundColor: Colors.card,
+                calendarBackground: Colors.card,
+                textSectionTitleColor: Colors.text,
+                selectedDayBackgroundColor: Colors.primary,
+                selectedDayTextColor: 'white',
+                todayTextColor: Colors.primary,
+                dayTextColor: Colors.text,
+                textDisabledColor: Colors.textLight,
+                dotColor: Colors.primary,
+                selectedDotColor: 'white',
+                arrowColor: Colors.primary,
+                monthTextColor: Colors.text,
+                indicatorColor: Colors.primary,
+                textDayFontWeight: '500',
+                textMonthFontWeight: 'bold',
+                textDayHeaderFontWeight: '600',
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -765,6 +773,49 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: Colors.text,
+    marginTop: 16,
+    fontWeight: '500',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  errorMessage: {
+    fontSize: 16,
+    color: Colors.textLight,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  retryButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   headerSection: {
     marginBottom: 32,
@@ -857,16 +908,10 @@ const styles = StyleSheet.create({
     color: Colors.text,
     marginLeft: 12,
   },
-  subsectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
   subsectionTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: Colors.text,
-    marginLeft: 8,
   },
   inputGroup: {
     marginBottom: 20,
@@ -886,7 +931,13 @@ const styles = StyleSheet.create({
     color: Colors.text,
     borderWidth: 2,
     borderColor: Colors.border,
-    transition: 'all 0.3s ease',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  inputText: {
+    fontSize: 16,
+    flex: 1,
   },
   inputFilled: {
     borderColor: Colors.primary,
@@ -900,33 +951,12 @@ const styles = StyleSheet.create({
     height: 100,
     textAlignVertical: 'top',
   },
-  dropdownContainer: {
-    backgroundColor: Colors.background,
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderWidth: 2,
-    borderColor: Colors.border,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  dropdownText: {
-    fontSize: 16,
-    color: Colors.text,
-  },
   placeholderText: {
     color: Colors.textLight,
   },
   filledText: {
     color: Colors.text,
     fontWeight: '500',
-  },
-  errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    paddingHorizontal: 4,
   },
   errorText: {
     fontSize: 14,
@@ -970,55 +1000,6 @@ const styles = StyleSheet.create({
   photoUploadSubtext: {
     fontSize: 12,
     color: Colors.textLight,
-  },
-  toggleContainer: {
-    marginBottom: 20,
-  },
-  toggleButtons: {
-    flexDirection: 'row',
-    backgroundColor: Colors.background,
-    borderRadius: 16,
-    padding: 4,
-    borderWidth: 2,
-    borderColor: Colors.border,
-  },
-  toggleButton: {
-    flex: 1,
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    borderRadius: 12,
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  toggleButtonActive: {
-    backgroundColor: Colors.primary,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  toggleButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.textLight,
-    marginLeft: 8,
-  },
-  toggleButtonTextActive: {
-    color: 'white',
-  },
-  spouseSection: {
-    marginTop: 20,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-  },
-  childrenSection: {
-    marginTop: 20,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
   },
   childrenHeader: {
     flexDirection: 'row',
@@ -1126,6 +1107,45 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 40,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  calendarModal: {
+    backgroundColor: Colors.card,
+    borderRadius: 20,
+    margin: 20,
+    maxWidth: 400,
+    width: '90%',
+    shadowColor: Colors.cardShadow,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  calendarTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.text,
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 
