@@ -13,17 +13,20 @@ import {
   Animated,
   Modal,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { Calendar } from 'react-native-calendars';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import * as ImagePicker from 'expo-image-picker';
 import Header from '../components/Header';
 import Colors from '../constants/Colors';
 
 interface FormField {
   id: string;
   name: string;
-  type: 'text' | 'email' | 'phone' | 'date' | 'select' | 'textarea' | 'file';
+  type: 'text' | 'email' | 'phone' | 'date' | 'select' | 'textarea' | 'file' | 'checkbox' | 'image';
   label: string;
   placeholder?: string;
   required: boolean;
@@ -73,10 +76,14 @@ const SuvidhaCardRegistrationScreen = () => {
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Calendar modal state
-  const [showCalendar, setShowCalendar] = useState(false);
+  // Date picker state
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDateField, setSelectedDateField] = useState<string>('');
   const [selectedChildId, setSelectedChildId] = useState<string>('');
+  const [currentDate, setCurrentDate] = useState(new Date());
+  
+  // Calendar modal state (fallback)
+  const [showCalendar, setShowCalendar] = useState(false);
 
   // Fetch form schema from API
   useEffect(() => {
@@ -99,17 +106,88 @@ const SuvidhaCardRegistrationScreen = () => {
       const initialData: { [key: string]: any } = {};
       schema.sections.forEach((section: FormSection) => {
         section.fields.forEach((field: FormField) => {
-          initialData[field.id] = '';
+          if (field.type === 'checkbox') {
+            initialData[field.id] = false;
+          } else {
+            initialData[field.id] = '';
+          }
         });
       });
       setFormData(initialData);
       
     } catch (error) {
       console.error('Error fetching form schema:', error);
+      
+      // Fallback to default schema
+      const fallbackSchema: FormSchema = {
+        title: 'DAYS Suvidha Card',
+        description: 'Join thousands of members enjoying exclusive discounts across Ahmedabad',
+        sections: [
+          {
+            id: 'personal',
+            title: 'Personal Information',
+            icon: 'person',
+            fields: [
+              { id: 'name', name: 'name', type: 'text', label: 'Full Name', required: true, validation: { minLength: 2 } },
+              { id: 'dob', name: 'dob', type: 'date', label: 'Date of Birth', required: true },
+              { id: 'gender', name: 'gender', type: 'select', label: 'Gender', required: true, options: ['Male', 'Female', 'Other'] },
+              { id: 'blood_group', name: 'blood_group', type: 'select', label: 'Blood Group', required: false, options: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] },
+              { id: 'photo', name: 'photo', type: 'image', label: 'Photo Upload', required: false },
+              { id: 'terms', name: 'terms', type: 'checkbox', label: 'I agree to terms and conditions', required: true }
+            ]
+          },
+          {
+            id: 'contact',
+            title: 'Contact Information',
+            icon: 'contact-phone',
+            fields: [
+              { id: 'phone', name: 'phone', type: 'phone', label: 'Phone Number', required: true, validation: { pattern: '^[6-9]\\d{9}$' } },
+              { id: 'email', name: 'email', type: 'email', label: 'Email Address', required: true },
+              { id: 'address', name: 'address', type: 'textarea', label: 'Full Address', required: true, validation: { minLength: 10 } },
+              { id: 'pincode', name: 'pincode', type: 'text', label: 'Pin Code', required: true, validation: { pattern: '^\\d{6}$' } }
+            ]
+          },
+          {
+            id: 'family',
+            title: 'Family Information',
+            icon: 'family-restroom',
+            fields: [
+              { id: 'marital_status', name: 'marital_status', type: 'select', label: 'Marital Status', required: true, options: ['Single', 'Married'] }
+            ]
+          },
+          {
+            id: 'spouse',
+            title: 'Spouse Details',
+            icon: 'favorite',
+            fields: [
+              { id: 'spouse_name', name: 'spouse_name', type: 'text', label: 'Spouse Name', required: true, validation: { minLength: 2 } },
+              { id: 'spouse_dob', name: 'spouse_dob', type: 'date', label: 'Spouse Date of Birth', required: true },
+              { id: 'spouse_blood_group', name: 'spouse_blood_group', type: 'select', label: 'Spouse Blood Group', required: true, options: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] }
+            ],
+            conditional: { dependsOn: 'marital_status', value: 'Married' }
+          }
+        ]
+      };
+      
+      setFormSchema(fallbackSchema);
+      
+      // Initialize form data with empty values
+      const initialData: { [key: string]: any } = {};
+      fallbackSchema.sections.forEach((section: FormSection) => {
+        section.fields.forEach((field: FormField) => {
+          if (field.type === 'checkbox') {
+            initialData[field.id] = false;
+          } else {
+            initialData[field.id] = '';
+          }
+        });
+      });
+      setFormData(initialData);
+      
       Alert.alert(
-        'Error',
-        'Failed to load form. Please check your internet connection and try again.',
-        [{ text: 'Retry', onPress: fetchFormSchema }]
+        'Using Offline Form',
+        'Could not connect to server. Using default form fields.',
+        [{ text: 'OK' }]
       );
     } finally {
       setLoading(false);
@@ -118,8 +196,15 @@ const SuvidhaCardRegistrationScreen = () => {
 
   // Validation functions
   const validateField = (field: FormField, value: any): string | undefined => {
-    if (field.required && (!value || value.toString().trim() === '')) {
+    if (field.required && (
+      (field.type === 'checkbox' && !value) ||
+      (field.type !== 'checkbox' && (!value || value.toString().trim() === ''))
+    )) {
       return `${field.label} is required`;
+    }
+
+    if (field.type === 'checkbox') {
+      return undefined; // Checkboxes only need required validation
     }
 
     if (!value || value.toString().trim() === '') {
@@ -241,7 +326,30 @@ const SuvidhaCardRegistrationScreen = () => {
     } as FormField;
   };
 
-  const handleDateSelect = (date: string) => {
+  const handleDateSelect = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    
+    if (selectedDate) {
+      const formattedDate = selectedDate.toLocaleDateString('en-GB');
+      
+      if (selectedChildId) {
+        handleFieldChange(selectedDateField, formattedDate, selectedChildId);
+      } else {
+        handleFieldChange(selectedDateField, formattedDate);
+      }
+      
+      if (Platform.OS === 'ios') {
+        setShowDatePicker(false);
+      }
+    }
+    
+    setSelectedDateField('');
+    setSelectedChildId('');
+  };
+
+  const handleCalendarDateSelect = (date: string) => {
     const formattedDate = new Date(date).toLocaleDateString('en-GB');
     
     if (selectedChildId) {
@@ -255,10 +363,91 @@ const SuvidhaCardRegistrationScreen = () => {
     setSelectedChildId('');
   };
 
+  const openDatePicker = (fieldId: string, childId?: string) => {
+    setSelectedDateField(fieldId);
+    setSelectedChildId(childId || '');
+    
+    // Get current value to set initial date
+    let currentValue;
+    if (childId) {
+      const child = children.find(c => c.id === childId);
+      currentValue = child?.[fieldId];
+    } else {
+      currentValue = formData[fieldId];
+    }
+    
+    if (currentValue) {
+      const [day, month, year] = currentValue.split('/');
+      setCurrentDate(new Date(parseInt(year), parseInt(month) - 1, parseInt(day)));
+    } else {
+      setCurrentDate(new Date());
+    }
+    
+    setShowDatePicker(true);
+  };
+
   const openCalendar = (fieldId: string, childId?: string) => {
     setSelectedDateField(fieldId);
     setSelectedChildId(childId || '');
     setShowCalendar(true);
+  };
+
+  const handleImagePicker = async (fieldId: string, childId?: string) => {
+    try {
+      // Request permissions
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please grant permission to access your photo library.');
+        return;
+      }
+
+      Alert.alert(
+        'Select Image',
+        'Choose an option',
+        [
+          {
+            text: 'Camera',
+            onPress: async () => {
+              const cameraStatus = await ImagePicker.requestCameraPermissionsAsync();
+              if (cameraStatus.status !== 'granted') {
+                Alert.alert('Permission Required', 'Please grant camera permission.');
+                return;
+              }
+              
+              const result = await ImagePicker.launchCameraAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.8,
+              });
+
+              if (!result.canceled && result.assets[0]) {
+                handleFieldChange(fieldId, result.assets[0].uri, childId);
+              }
+            }
+          },
+          {
+            text: 'Gallery',
+            onPress: async () => {
+              const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.8,
+              });
+
+              if (!result.canceled && result.assets[0]) {
+                handleFieldChange(fieldId, result.assets[0].uri, childId);
+              }
+            }
+          },
+          { text: 'Cancel', onPress: () => {} }
+        ]
+      );
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
+    }
   };
 
   const addChild = () => {
@@ -358,12 +547,12 @@ const SuvidhaCardRegistrationScreen = () => {
 
   const renderInput = (
     field: FormField,
-    value: string,
+    value: any,
     error?: string,
     childId?: string
   ) => {
-    const handleChange = (text: string) => {
-      handleFieldChange(field.id, text, childId);
+    const handleChange = (newValue: any) => {
+      handleFieldChange(field.id, newValue, childId);
     };
 
     const handleBlur = () => {
@@ -384,6 +573,44 @@ const SuvidhaCardRegistrationScreen = () => {
       }
     };
 
+    // Checkbox input
+    if (field.type === 'checkbox') {
+      return (
+        <View>
+          <TouchableOpacity
+            style={[
+              styles.checkboxContainer,
+              error && styles.checkboxError
+            ]}
+            onPress={() => handleChange(!value)}
+          >
+            <View style={[
+              styles.checkbox,
+              value && styles.checkboxChecked,
+              error && styles.checkboxErrorBorder
+            ]}>
+              {value && (
+                <MaterialIcons name="check" size={18} color="white" />
+              )}
+            </View>
+            <Text style={[
+              styles.checkboxLabel,
+              error && styles.checkboxLabelError
+            ]}>
+              {field.label}
+            </Text>
+          </TouchableOpacity>
+          {error && (
+            <View style={styles.errorContainer}>
+              <MaterialIcons name="error-outline" size={16} color={Colors.error} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+        </View>
+      );
+    }
+
+    // Date input with native picker
     if (field.type === 'date') {
       return (
         <View>
@@ -393,7 +620,7 @@ const SuvidhaCardRegistrationScreen = () => {
               error && styles.inputError,
               value && styles.inputFilled
             ]}
-            onPress={() => openCalendar(field.id, childId)}
+            onPress={() => openDatePicker(field.id, childId)}
           >
             <Text style={[
               styles.inputText,
@@ -408,6 +635,13 @@ const SuvidhaCardRegistrationScreen = () => {
               color={error ? Colors.error : value ? Colors.primary : Colors.textLight} 
             />
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.calendarFallbackButton}
+            onPress={() => openCalendar(field.id, childId)}
+          >
+            <MaterialIcons name="event" size={16} color={Colors.primary} />
+            <Text style={styles.calendarFallbackText}>Use Calendar</Text>
+          </TouchableOpacity>
           {error && (
             <View style={styles.errorContainer}>
               <MaterialIcons name="error-outline" size={16} color={Colors.error} />
@@ -418,6 +652,46 @@ const SuvidhaCardRegistrationScreen = () => {
       );
     }
 
+    // Image/File upload
+    if (field.type === 'image' || field.type === 'file') {
+      return (
+        <View>
+          <TouchableOpacity 
+            style={[
+              styles.imageUpload,
+              error && styles.imageUploadError
+            ]} 
+            onPress={() => handleImagePicker(field.id, childId)}
+          >
+            {value ? (
+              <View style={styles.imagePreviewContainer}>
+                <Image source={{ uri: value }} style={styles.imagePreview} />
+                <View style={styles.imageOverlay}>
+                  <MaterialIcons name="edit" size={24} color="white" />
+                  <Text style={styles.imageOverlayText}>Change</Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.imageUploadContent}>
+                <View style={styles.imageIconContainer}>
+                  <MaterialIcons name="add-a-photo" size={32} color={Colors.primary} />
+                </View>
+                <Text style={styles.imageUploadText}>Tap to upload {field.label.toLowerCase()}</Text>
+                <Text style={styles.imageUploadSubtext}>JPG, PNG up to 5MB</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          {error && (
+            <View style={styles.errorContainer}>
+              <MaterialIcons name="error-outline" size={16} color={Colors.error} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+        </View>
+      );
+    }
+
+    // Select dropdown
     if (field.type === 'select') {
       return (
         <View>
@@ -463,37 +737,7 @@ const SuvidhaCardRegistrationScreen = () => {
       );
     }
 
-    if (field.type === 'file') {
-      return (
-        <TouchableOpacity 
-          style={styles.photoUpload} 
-          onPress={() => {
-            Alert.alert(
-              'Upload Photo',
-              'Choose an option',
-              [
-                { text: 'Camera', onPress: () => console.log('Camera selected') },
-                { text: 'Gallery', onPress: () => console.log('Gallery selected') },
-                { text: 'Cancel', onPress: () => {} },
-              ]
-            );
-          }}
-        >
-          {value ? (
-            <Image source={{ uri: value }} style={styles.photoPreview} />
-          ) : (
-            <View style={styles.photoUploadContent}>
-              <View style={styles.photoIconContainer}>
-                <MaterialIcons name="camera-alt" size={28} color={Colors.primary} />
-              </View>
-              <Text style={styles.photoUploadText}>Tap to upload photo</Text>
-              <Text style={styles.photoUploadSubtext}>JPG, PNG up to 5MB</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      );
-    }
-
+    // Regular text inputs
     return (
       <View>
         <TextInput
@@ -503,7 +747,7 @@ const SuvidhaCardRegistrationScreen = () => {
             error && styles.inputError,
             value && styles.inputFilled
           ]}
-          value={value}
+          value={value || ''}
           onChangeText={handleChange}
           onBlur={handleBlur}
           placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
@@ -539,10 +783,12 @@ const SuvidhaCardRegistrationScreen = () => {
         
         {section.fields.map(field => (
           <View key={field.id} style={styles.inputGroup}>
-            <Text style={styles.label}>
-              {field.label} {field.required && '*'}
-            </Text>
-            {renderInput(field, formData[field.id] || '', errors[field.id] as string)}
+            {field.type !== 'checkbox' && (
+              <Text style={styles.label}>
+                {field.label} {field.required && '*'}
+              </Text>
+            )}
+            {renderInput(field, formData[field.id], errors[field.id] as string)}
           </View>
         ))}
       </View>
@@ -716,7 +962,46 @@ const SuvidhaCardRegistrationScreen = () => {
         </View>
       </ScrollView>
 
-      {/* Calendar Modal */}
+      {/* Native Date Picker */}
+      {showDatePicker && (
+        <Modal
+          transparent={true}
+          animationType="slide"
+          visible={showDatePicker}
+          onRequestClose={() => setShowDatePicker(false)}
+        >
+          <View style={styles.datePickerModal}>
+            <View style={styles.datePickerContainer}>
+              <View style={styles.datePickerHeader}>
+                <TouchableOpacity
+                  onPress={() => setShowDatePicker(false)}
+                  style={styles.datePickerButton}
+                >
+                  <Text style={styles.datePickerButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <Text style={styles.datePickerTitle}>Select Date</Text>
+                <TouchableOpacity
+                  onPress={() => handleDateSelect(null, currentDate)}
+                  style={styles.datePickerButton}
+                >
+                  <Text style={[styles.datePickerButtonText, styles.datePickerDoneButton]}>Done</Text>
+                </TouchableOpacity>
+              </View>
+              <DateTimePicker
+                value={currentDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={handleDateSelect}
+                maximumDate={new Date()}
+                minimumDate={new Date(1900, 0, 1)}
+                style={styles.datePicker}
+              />
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Calendar Modal (Fallback) */}
       <Modal
         visible={showCalendar}
         transparent={true}
@@ -735,7 +1020,7 @@ const SuvidhaCardRegistrationScreen = () => {
               </TouchableOpacity>
             </View>
             <Calendar
-              onDayPress={(day) => handleDateSelect(day.dateString)}
+              onDayPress={(day) => handleCalendarDateSelect(day.dateString)}
               maxDate={new Date().toISOString().split('T')[0]}
               theme={{
                 backgroundColor: Colors.card,
@@ -964,42 +1249,161 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     flex: 1,
   },
-  photoUpload: {
+  // Checkbox styles
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  checkboxError: {
+    // Add error styling if needed
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: Colors.border,
+    backgroundColor: Colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  checkboxChecked: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  checkboxErrorBorder: {
+    borderColor: Colors.error,
+  },
+  checkboxLabel: {
+    fontSize: 16,
+    color: Colors.text,
+    flex: 1,
+  },
+  checkboxLabelError: {
+    color: Colors.error,
+  },
+  // Image upload styles
+  imageUpload: {
     backgroundColor: Colors.background,
     borderRadius: 16,
     borderWidth: 2,
     borderColor: Colors.border,
     borderStyle: 'dashed',
-    height: 140,
+    height: 160,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
-  photoUploadContent: {
+  imageUploadError: {
+    borderColor: Colors.error,
+    backgroundColor: `${Colors.error}05`,
+  },
+  imageUploadContent: {
     alignItems: 'center',
   },
-  photoIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  imageIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: `${Colors.primary}15`,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  photoPreview: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 14,
-  },
-  photoUploadText: {
+  imageUploadText: {
     fontSize: 16,
     color: Colors.primary,
     fontWeight: '600',
     marginBottom: 4,
   },
-  photoUploadSubtext: {
+  imageUploadSubtext: {
     fontSize: 12,
     color: Colors.textLight,
+  },
+  imagePreviewContainer: {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+  },
+  imagePreview: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 14,
+  },
+  imageOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 14,
+  },
+  imageOverlayText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  // Date picker styles
+  calendarFallbackButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: `${Colors.primary}10`,
+    borderRadius: 8,
+  },
+  calendarFallbackText: {
+    fontSize: 14,
+    color: Colors.primary,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  datePickerModal: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  datePickerContainer: {
+    backgroundColor: Colors.card,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  datePickerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.text,
+  },
+  datePickerButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  datePickerButtonText: {
+    fontSize: 16,
+    color: Colors.primary,
+  },
+  datePickerDoneButton: {
+    fontWeight: '600',
+  },
+  datePicker: {
+    backgroundColor: Colors.card,
   },
   childrenHeader: {
     flexDirection: 'row',
