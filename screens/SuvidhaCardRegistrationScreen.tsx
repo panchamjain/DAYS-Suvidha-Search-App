@@ -20,6 +20,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Calendar } from 'react-native-calendars';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import Header from '../components/Header';
 import Colors from '../constants/Colors';
 
@@ -79,6 +80,9 @@ const SuvidhaCardRegistrationScreen = () => {
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Photo upload state
+  const [uploadingPhotos, setUploadingPhotos] = useState<{ [key: string]: boolean }>({});
   
   // Date picker state
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -484,6 +488,70 @@ const SuvidhaCardRegistrationScreen = () => {
     setShowCalendar(true);
   };
 
+  const compressImage = async (uri: string): Promise<string> => {
+    try {
+      const manipulatedImage = await ImageManipulator.manipulateAsync(
+        uri,
+        [
+          // Resize to maximum 800x800 while maintaining aspect ratio
+          { resize: { width: 800, height: 800 } }
+        ],
+        {
+          compress: 0.7, // 70% quality
+          format: ImageManipulator.SaveFormat.JPEG,
+        }
+      );
+      return manipulatedImage.uri;
+    } catch (error) {
+      console.error('Error compressing image:', error);
+      return uri; // Return original URI if compression fails
+    }
+  };
+
+  const uploadPhotoToServer = async (imageUri: string): Promise<string | null> => {
+    try {
+      // Create FormData for file upload
+      const formData = new FormData();
+      
+      // Get file extension
+      const fileExtension = imageUri.split('.').pop() || 'jpg';
+      const fileName = `photo_${Date.now()}.${fileExtension}`;
+      
+      // Append the image file
+      formData.append('photo', {
+        uri: imageUri,
+        type: `image/${fileExtension}`,
+        name: fileName,
+      } as any);
+
+      const response = await fetch('https://www.daysahmedabad.com/api/suvidha/upload-photo/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        body: formData,
+      });
+
+      const responseData = await response.json();
+
+      if (response.ok && responseData.url) {
+        return responseData.url;
+      } else {
+        throw new Error(responseData.message || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      throw error;
+    }
+  };
+
+  const getUploadKey = (fieldName: string, groupId?: string, groupName?: string): string => {
+    if (groupId && groupName) {
+      return `${groupName}_${groupId}_${fieldName}`;
+    }
+    return fieldName;
+  };
+
   const handleImagePicker = async (fieldName: string, groupId?: string, groupName?: string) => {
     try {
       // Request permissions
@@ -514,7 +582,7 @@ const SuvidhaCardRegistrationScreen = () => {
               });
 
               if (!result.canceled && result.assets[0]) {
-                handleFieldChange(fieldName, result.assets[0].uri, groupId, groupName);
+                await processSelectedImage(result.assets[0].uri, fieldName, groupId, groupName);
               }
             }
           },
@@ -529,7 +597,7 @@ const SuvidhaCardRegistrationScreen = () => {
               });
 
               if (!result.canceled && result.assets[0]) {
-                handleFieldChange(fieldName, result.assets[0].uri, groupId, groupName);
+                await processSelectedImage(result.assets[0].uri, fieldName, groupId, groupName);
               }
             }
           },
@@ -539,6 +607,53 @@ const SuvidhaCardRegistrationScreen = () => {
     } catch (error) {
       console.error('Error picking image:', error);
       Alert.alert('Error', 'Failed to pick image. Please try again.');
+    }
+  };
+
+  const processSelectedImage = async (
+    imageUri: string, 
+    fieldName: string, 
+    groupId?: string, 
+    groupName?: string
+  ) => {
+    const uploadKey = getUploadKey(fieldName, groupId, groupName);
+    
+    try {
+      // Set uploading state
+      setUploadingPhotos(prev => ({ ...prev, [uploadKey]: true }));
+
+      // Step 1: Compress the image
+      const compressedUri = await compressImage(imageUri);
+
+      // Step 2: Upload to server
+      const serverUrl = await uploadPhotoToServer(compressedUri);
+
+      if (serverUrl) {
+        // Step 3: Store the server URL in form data
+        handleFieldChange(fieldName, serverUrl, groupId, groupName);
+        
+        Alert.alert(
+          'Photo Uploaded Successfully! 📸',
+          'Your photo has been compressed and uploaded to the server.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Error processing image:', error);
+      Alert.alert(
+        'Upload Failed',
+        'Failed to upload photo. Please try again or check your internet connection.',
+        [
+          { text: 'Cancel' },
+          { 
+            text: 'Retry', 
+            onPress: () => processSelectedImage(imageUri, fieldName, groupId, groupName) 
+          }
+        ]
+      );
+    } finally {
+      // Clear uploading state
+      setUploadingPhotos(prev => ({ ...prev, [uploadKey]: false }));
     }
   };
 
@@ -845,24 +960,44 @@ const SuvidhaCardRegistrationScreen = () => {
       );
     }
 
-    // Image/File upload
+    // Image/File upload with compression and server upload
     if (field.type === 'image' || field.type === 'file') {
+      const uploadKey = getUploadKey(field.name, groupId, groupName);
+      const isUploading = uploadingPhotos[uploadKey];
+      
       return (
         <View>
           <TouchableOpacity 
             style={[
               styles.imageUpload,
-              error && styles.imageUploadError
+              error && styles.imageUploadError,
+              isUploading && styles.imageUploadUploading
             ]} 
-            onPress={() => handleImagePicker(field.name, groupId, groupName)}
+            onPress={() => !isUploading && handleImagePicker(field.name, groupId, groupName)}
+            disabled={isUploading}
           >
-            {value ? (
+            {isUploading ? (
+              <View style={styles.imageUploadContent}>
+                <ActivityIndicator size={32} color={Colors.primary} />
+                <Text style={styles.imageUploadText}>Compressing & Uploading...</Text>
+                <Text style={styles.imageUploadSubtext}>Please wait</Text>
+              </View>
+            ) : value ? (
               <View style={styles.imagePreviewContainer}>
-                <Image source={{ uri: value }} style={styles.imagePreview} />
+                <Image 
+                  source={{ uri: value.startsWith('http') ? value : value }} 
+                  style={styles.imagePreview} 
+                />
                 <View style={styles.imageOverlay}>
-                  <MaterialIcons name="edit" size={24} color="white" />
-                  <Text style={styles.imageOverlayText}>Change</Text>
+                  <MaterialIcons name="cloud-done" size={24} color="white" />
+                  <Text style={styles.imageOverlayText}>Uploaded</Text>
                 </View>
+                <TouchableOpacity
+                  style={styles.changePhotoButton}
+                  onPress={() => handleImagePicker(field.name, groupId, groupName)}
+                >
+                  <MaterialIcons name="edit" size={16} color="white" />
+                </TouchableOpacity>
               </View>
             ) : (
               <View style={styles.imageUploadContent}>
@@ -870,10 +1005,19 @@ const SuvidhaCardRegistrationScreen = () => {
                   <MaterialIcons name="add-a-photo" size={32} color={Colors.primary} />
                 </View>
                 <Text style={styles.imageUploadText}>Tap to upload {field.label.toLowerCase()}</Text>
-                <Text style={styles.imageUploadSubtext}>JPG, PNG up to 5MB</Text>
+                <Text style={styles.imageUploadSubtext}>JPG, PNG • Auto-compressed</Text>
               </View>
             )}
           </TouchableOpacity>
+          
+          {/* Upload Status Indicator */}
+          {value && !isUploading && (
+            <View style={styles.uploadStatusContainer}>
+              <MaterialIcons name="cloud-done" size={16} color={Colors.success} />
+              <Text style={styles.uploadStatusText}>Photo uploaded to server</Text>
+            </View>
+          )}
+          
           {error && (
             <View style={styles.errorContainer}>
               <MaterialIcons name="error-outline" size={16} color={Colors.error} />
@@ -1260,10 +1404,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 40,
+    marginTop: 8,
   },
   errorTitle: {
     fontSize: 20,
@@ -1437,6 +1580,11 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     flex: 1,
   },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
   // Toggle styles
   toggleContainer: {
     flexDirection: 'row',
@@ -1526,6 +1674,11 @@ const styles = StyleSheet.create({
     borderColor: Colors.error,
     backgroundColor: `${Colors.error}05`,
   },
+  imageUploadUploading: {
+    borderColor: Colors.primary,
+    backgroundColor: `${Colors.primary}05`,
+    borderStyle: 'solid',
+  },
   imageUploadContent: {
     alignItems: 'center',
   },
@@ -1574,6 +1727,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginTop: 4,
+  },
+  changePhotoButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  uploadStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: `${Colors.success}10`,
+    borderRadius: 8,
+  },
+  uploadStatusText: {
+    fontSize: 12,
+    color: Colors.success,
+    marginLeft: 4,
+    fontWeight: '500',
   },
   // Date picker styles
   calendarFallbackButton: {
