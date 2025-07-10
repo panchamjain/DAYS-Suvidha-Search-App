@@ -24,13 +24,17 @@ import Header from '../components/Header';
 import Colors from '../constants/Colors';
 
 interface FormField {
-  id: string;
+  id: number;
   name: string;
-  type: 'text' | 'email' | 'phone' | 'date' | 'select' | 'textarea' | 'file' | 'checkbox' | 'image';
+  type: 'text' | 'email' | 'phone' | 'date' | 'select' | 'textarea' | 'file' | 'checkbox' | 'image' | 'toggle' | 'repeatable_group';
   label: string;
   placeholder?: string;
   required: boolean;
   options?: string[];
+  fields?: FormField[]; // For repeatable_group
+  visible_if?: {
+    [key: string]: any;
+  };
   validation?: {
     minLength?: number;
     maxLength?: number;
@@ -56,7 +60,7 @@ interface FormSchema {
   sections: FormSection[];
 }
 
-interface Child {
+interface RepeatableGroupItem {
   id: string;
   [key: string]: any;
 }
@@ -71,7 +75,7 @@ const SuvidhaCardRegistrationScreen = () => {
   // Form schema and data
   const [formSchema, setFormSchema] = useState<FormSchema | null>(null);
   const [formData, setFormData] = useState<{ [key: string]: any }>({});
-  const [children, setChildren] = useState<Child[]>([]);
+  const [repeatableGroups, setRepeatableGroups] = useState<{ [key: string]: RepeatableGroupItem[] }>({});
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -79,8 +83,10 @@ const SuvidhaCardRegistrationScreen = () => {
   // Date picker state
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDateField, setSelectedDateField] = useState<string>('');
-  const [selectedChildId, setSelectedChildId] = useState<string>('');
+  const [selectedGroupId, setSelectedGroupId] = useState<string>('');
+  const [selectedGroupName, setSelectedGroupName] = useState<string>('');
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [tempDate, setTempDate] = useState(new Date());
   
   // Calendar modal state (fallback)
   const [showCalendar, setShowCalendar] = useState(false);
@@ -104,16 +110,24 @@ const SuvidhaCardRegistrationScreen = () => {
       
       // Initialize form data with empty values
       const initialData: { [key: string]: any } = {};
+      const initialGroups: { [key: string]: RepeatableGroupItem[] } = {};
+      
       schema.sections.forEach((section: FormSection) => {
         section.fields.forEach((field: FormField) => {
           if (field.type === 'checkbox') {
-            initialData[field.id] = false;
+            initialData[field.name] = false;
+          } else if (field.type === 'toggle' && field.options && field.options.length > 0) {
+            initialData[field.name] = field.options[0]; // Set first option as active
+          } else if (field.type === 'repeatable_group') {
+            initialGroups[field.name] = [];
           } else {
-            initialData[field.id] = '';
+            initialData[field.name] = '';
           }
         });
       });
+      
       setFormData(initialData);
+      setRepeatableGroups(initialGroups);
       
     } catch (error) {
       console.error('Error fetching form schema:', error);
@@ -128,12 +142,12 @@ const SuvidhaCardRegistrationScreen = () => {
             title: 'Personal Information',
             icon: 'person',
             fields: [
-              { id: 'name', name: 'name', type: 'text', label: 'Full Name', required: true, validation: { minLength: 2 } },
-              { id: 'dob', name: 'dob', type: 'date', label: 'Date of Birth', required: true },
-              { id: 'gender', name: 'gender', type: 'select', label: 'Gender', required: true, options: ['Male', 'Female', 'Other'] },
-              { id: 'blood_group', name: 'blood_group', type: 'select', label: 'Blood Group', required: false, options: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] },
-              { id: 'photo', name: 'photo', type: 'image', label: 'Photo Upload', required: false },
-              { id: 'terms', name: 'terms', type: 'checkbox', label: 'I agree to terms and conditions', required: true }
+              { id: 1, name: 'name', type: 'text', label: 'Full Name', required: true, validation: { minLength: 2 } },
+              { id: 2, name: 'dob', type: 'date', label: 'Date of Birth', required: true },
+              { id: 3, name: 'gender', type: 'select', label: 'Gender', required: true, options: ['Male', 'Female', 'Other'] },
+              { id: 4, name: 'blood_group', type: 'select', label: 'Blood Group', required: false, options: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] },
+              { id: 5, name: 'photo', type: 'image', label: 'Photo Upload', required: false },
+              { id: 6, name: 'terms', type: 'checkbox', label: 'I agree to terms and conditions', required: true }
             ]
           },
           {
@@ -141,10 +155,10 @@ const SuvidhaCardRegistrationScreen = () => {
             title: 'Contact Information',
             icon: 'contact-phone',
             fields: [
-              { id: 'phone', name: 'phone', type: 'phone', label: 'Phone Number', required: true, validation: { pattern: '^[6-9]\\d{9}$' } },
-              { id: 'email', name: 'email', type: 'email', label: 'Email Address', required: true },
-              { id: 'address', name: 'address', type: 'textarea', label: 'Full Address', required: true, validation: { minLength: 10 } },
-              { id: 'pincode', name: 'pincode', type: 'text', label: 'Pin Code', required: true, validation: { pattern: '^\\d{6}$' } }
+              { id: 7, name: 'phone', type: 'phone', label: 'Phone Number', required: true, validation: { pattern: '^[6-9]\\d{9}$' } },
+              { id: 8, name: 'email', type: 'email', label: 'Email Address', required: true },
+              { id: 9, name: 'address', type: 'textarea', label: 'Full Address', required: true, validation: { minLength: 10 } },
+              { id: 11, name: 'pincode', type: 'text', label: 'Pin Code', required: true, validation: { pattern: '^\\d{6}$' } }
             ]
           },
           {
@@ -152,7 +166,7 @@ const SuvidhaCardRegistrationScreen = () => {
             title: 'Family Information',
             icon: 'family-restroom',
             fields: [
-              { id: 'marital_status', name: 'marital_status', type: 'select', label: 'Marital Status', required: true, options: ['Single', 'Married'] }
+              { id: 10, name: 'is_married', type: 'toggle', label: 'Marital Status', required: true, options: ['Single', 'Married'] }
             ]
           },
           {
@@ -160,11 +174,29 @@ const SuvidhaCardRegistrationScreen = () => {
             title: 'Spouse Details',
             icon: 'favorite',
             fields: [
-              { id: 'spouse_name', name: 'spouse_name', type: 'text', label: 'Spouse Name', required: true, validation: { minLength: 2 } },
-              { id: 'spouse_dob', name: 'spouse_dob', type: 'date', label: 'Spouse Date of Birth', required: true },
-              { id: 'spouse_blood_group', name: 'spouse_blood_group', type: 'select', label: 'Spouse Blood Group', required: true, options: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] }
-            ],
-            conditional: { dependsOn: 'marital_status', value: 'Married' }
+              { id: 12, name: 'spouse_name', type: 'text', label: 'Spouse Name', required: true, validation: { minLength: 2 }, visible_if: { is_married: 'Married' } },
+              { id: 13, name: 'spouse_dob', type: 'date', label: 'Spouse Date of Birth', required: true, visible_if: { is_married: 'Married' } },
+              { id: 14, name: 'spouse_blood_group', type: 'select', label: 'Spouse Blood Group', required: true, options: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'], visible_if: { is_married: 'Married' } }
+            ]
+          },
+          {
+            id: 'children',
+            title: 'Children Information',
+            icon: 'child-care',
+            fields: [
+              {
+                id: 15,
+                name: 'children',
+                type: 'repeatable_group',
+                label: 'Children Details',
+                required: false,
+                fields: [
+                  { id: 16, name: 'child_name', type: 'text', label: 'Child Name', required: true },
+                  { id: 17, name: 'child_dob', type: 'date', label: 'Date of Birth', required: true },
+                  { id: 18, name: 'child_blood_group', type: 'select', label: 'Blood Group', required: true, options: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] }
+                ]
+              }
+            ]
           }
         ]
       };
@@ -173,16 +205,24 @@ const SuvidhaCardRegistrationScreen = () => {
       
       // Initialize form data with empty values
       const initialData: { [key: string]: any } = {};
+      const initialGroups: { [key: string]: RepeatableGroupItem[] } = {};
+      
       fallbackSchema.sections.forEach((section: FormSection) => {
         section.fields.forEach((field: FormField) => {
           if (field.type === 'checkbox') {
-            initialData[field.id] = false;
+            initialData[field.name] = false;
+          } else if (field.type === 'toggle' && field.options && field.options.length > 0) {
+            initialData[field.name] = field.options[0]; // Set first option as active
+          } else if (field.type === 'repeatable_group') {
+            initialGroups[field.name] = [];
           } else {
-            initialData[field.id] = '';
+            initialData[field.name] = '';
           }
         });
       });
+      
       setFormData(initialData);
+      setRepeatableGroups(initialGroups);
       
       Alert.alert(
         'Using Offline Form',
@@ -203,8 +243,8 @@ const SuvidhaCardRegistrationScreen = () => {
       return `${field.label} is required`;
     }
 
-    if (field.type === 'checkbox') {
-      return undefined; // Checkboxes only need required validation
+    if (field.type === 'checkbox' || field.type === 'toggle') {
+      return undefined; // Checkboxes and toggles only need required validation
     }
 
     if (!value || value.toString().trim() === '') {
@@ -269,130 +309,182 @@ const SuvidhaCardRegistrationScreen = () => {
     return undefined;
   };
 
-  const handleFieldChange = (fieldId: string, value: any, childId?: string) => {
-    if (childId) {
-      // Handle child field changes
-      setChildren(prev => prev.map(child => 
-        child.id === childId ? { ...child, [fieldId]: value } : child
-      ));
+  const handleFieldChange = (fieldName: string, value: any, groupId?: string, groupName?: string) => {
+    if (groupId && groupName) {
+      // Handle repeatable group field changes
+      setRepeatableGroups(prev => ({
+        ...prev,
+        [groupName]: prev[groupName].map(item => 
+          item.id === groupId ? { ...item, [fieldName]: value } : item
+        )
+      }));
       
-      // Validate child field
-      const field = getChildField(fieldId);
+      // Validate group field
+      const field = getGroupField(fieldName, groupName);
       if (field) {
         const error = validateField(field, value);
         setErrors(prev => ({
           ...prev,
-          children: {
-            ...((prev.children as { [key: string]: { [key: string]: string } }) || {}),
-            [childId]: {
-              ...((prev.children as { [key: string]: { [key: string]: string } })?.[childId] || {}),
-              [fieldId]: error || ''
+          [groupName]: {
+            ...((prev[groupName] as { [key: string]: { [key: string]: string } }) || {}),
+            [groupId]: {
+              ...((prev[groupName] as { [key: string]: { [key: string]: string } })?.[groupId] || {}),
+              [fieldName]: error || ''
             }
           }
         }));
       }
     } else {
       // Handle main form field changes
-      setFormData(prev => ({ ...prev, [fieldId]: value }));
+      setFormData(prev => ({ ...prev, [fieldName]: value }));
       
       // Validate field
-      const field = getFieldById(fieldId);
+      const field = getFieldByName(fieldName);
       if (field) {
         const error = validateField(field, value);
-        setErrors(prev => ({ ...prev, [fieldId]: error || '' }));
+        setErrors(prev => ({ ...prev, [fieldName]: error || '' }));
       }
     }
   };
 
-  const getFieldById = (fieldId: string): FormField | undefined => {
+  const getFieldByName = (fieldName: string): FormField | undefined => {
     if (!formSchema) return undefined;
     
     for (const section of formSchema.sections) {
-      const field = section.fields.find(f => f.id === fieldId);
+      const field = section.fields.find(f => f.name === fieldName);
       if (field) return field;
     }
     return undefined;
   };
 
-  const getChildField = (fieldId: string): FormField | undefined => {
-    // Assuming child fields follow a pattern like 'child_name', 'child_dob', etc.
-    const baseFieldId = fieldId.replace('child_', '');
-    return getFieldById(baseFieldId) || {
-      id: fieldId,
-      name: fieldId,
-      type: fieldId.includes('dob') ? 'date' : fieldId.includes('blood') ? 'select' : 'text',
-      label: fieldId.replace('child_', '').replace('_', ' '),
-      required: true
-    } as FormField;
+  const getGroupField = (fieldName: string, groupName: string): FormField | undefined => {
+    if (!formSchema) return undefined;
+    
+    for (const section of formSchema.sections) {
+      const groupField = section.fields.find(f => f.name === groupName && f.type === 'repeatable_group');
+      if (groupField && groupField.fields) {
+        return groupField.fields.find(f => f.name === fieldName);
+      }
+    }
+    return undefined;
+  };
+
+  const shouldShowField = (field: FormField): boolean => {
+    if (!field.visible_if) return true;
+    
+    for (const [dependentField, expectedValue] of Object.entries(field.visible_if)) {
+      const currentValue = formData[dependentField];
+      if (currentValue !== expectedValue) {
+        return false;
+      }
+    }
+    return true;
   };
 
   const handleDateSelect = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowDatePicker(false);
-    }
-    
     if (selectedDate) {
-      const formattedDate = selectedDate.toLocaleDateString('en-GB');
-      
-      if (selectedChildId) {
-        handleFieldChange(selectedDateField, formattedDate, selectedChildId);
-      } else {
-        handleFieldChange(selectedDateField, formattedDate);
-      }
-      
-      if (Platform.OS === 'ios') {
-        setShowDatePicker(false);
-      }
+      setTempDate(selectedDate);
     }
     
+    // Only close on Android when user cancels or selects
+    if (Platform.OS === 'android') {
+      if (event.type === 'dismissed') {
+        setShowDatePicker(false);
+        setSelectedDateField('');
+        setSelectedGroupId('');
+        setSelectedGroupName('');
+      } else if (event.type === 'set' && selectedDate) {
+        const formattedDate = selectedDate.toLocaleDateString('en-GB');
+        
+        if (selectedGroupId && selectedGroupName) {
+          handleFieldChange(selectedDateField, formattedDate, selectedGroupId, selectedGroupName);
+        } else {
+          handleFieldChange(selectedDateField, formattedDate);
+        }
+        
+        setShowDatePicker(false);
+        setSelectedDateField('');
+        setSelectedGroupId('');
+        setSelectedGroupName('');
+      }
+    }
+  };
+
+  const handleDatePickerDone = () => {
+    const formattedDate = tempDate.toLocaleDateString('en-GB');
+    
+    if (selectedGroupId && selectedGroupName) {
+      handleFieldChange(selectedDateField, formattedDate, selectedGroupId, selectedGroupName);
+    } else {
+      handleFieldChange(selectedDateField, formattedDate);
+    }
+    
+    setShowDatePicker(false);
     setSelectedDateField('');
-    setSelectedChildId('');
+    setSelectedGroupId('');
+    setSelectedGroupName('');
+  };
+
+  const handleDatePickerCancel = () => {
+    setShowDatePicker(false);
+    setSelectedDateField('');
+    setSelectedGroupId('');
+    setSelectedGroupName('');
+    setTempDate(currentDate);
   };
 
   const handleCalendarDateSelect = (date: string) => {
     const formattedDate = new Date(date).toLocaleDateString('en-GB');
     
-    if (selectedChildId) {
-      handleFieldChange(selectedDateField, formattedDate, selectedChildId);
+    if (selectedGroupId && selectedGroupName) {
+      handleFieldChange(selectedDateField, formattedDate, selectedGroupId, selectedGroupName);
     } else {
       handleFieldChange(selectedDateField, formattedDate);
     }
     
     setShowCalendar(false);
     setSelectedDateField('');
-    setSelectedChildId('');
+    setSelectedGroupId('');
+    setSelectedGroupName('');
   };
 
-  const openDatePicker = (fieldId: string, childId?: string) => {
-    setSelectedDateField(fieldId);
-    setSelectedChildId(childId || '');
+  const openDatePicker = (fieldName: string, groupId?: string, groupName?: string) => {
+    setSelectedDateField(fieldName);
+    setSelectedGroupId(groupId || '');
+    setSelectedGroupName(groupName || '');
     
     // Get current value to set initial date
     let currentValue;
-    if (childId) {
-      const child = children.find(c => c.id === childId);
-      currentValue = child?.[fieldId];
+    if (groupId && groupName) {
+      const group = repeatableGroups[groupName];
+      const item = group?.find(g => g.id === groupId);
+      currentValue = item?.[fieldName];
     } else {
-      currentValue = formData[fieldId];
+      currentValue = formData[fieldName];
     }
     
     if (currentValue) {
       const [day, month, year] = currentValue.split('/');
-      setCurrentDate(new Date(parseInt(year), parseInt(month) - 1, parseInt(day)));
+      const initialDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      setCurrentDate(initialDate);
+      setTempDate(initialDate);
     } else {
-      setCurrentDate(new Date());
+      const now = new Date();
+      setCurrentDate(now);
+      setTempDate(now);
     }
     
     setShowDatePicker(true);
   };
 
-  const openCalendar = (fieldId: string, childId?: string) => {
-    setSelectedDateField(fieldId);
-    setSelectedChildId(childId || '');
+  const openCalendar = (fieldName: string, groupId?: string, groupName?: string) => {
+    setSelectedDateField(fieldName);
+    setSelectedGroupId(groupId || '');
+    setSelectedGroupName(groupName || '');
     setShowCalendar(true);
   };
 
-  const handleImagePicker = async (fieldId: string, childId?: string) => {
+  const handleImagePicker = async (fieldName: string, groupId?: string, groupName?: string) => {
     try {
       // Request permissions
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -422,7 +514,7 @@ const SuvidhaCardRegistrationScreen = () => {
               });
 
               if (!result.canceled && result.assets[0]) {
-                handleFieldChange(fieldId, result.assets[0].uri, childId);
+                handleFieldChange(fieldName, result.assets[0].uri, groupId, groupName);
               }
             }
           },
@@ -437,7 +529,7 @@ const SuvidhaCardRegistrationScreen = () => {
               });
 
               if (!result.canceled && result.assets[0]) {
-                handleFieldChange(fieldId, result.assets[0].uri, childId);
+                handleFieldChange(fieldName, result.assets[0].uri, groupId, groupName);
               }
             }
           },
@@ -450,23 +542,42 @@ const SuvidhaCardRegistrationScreen = () => {
     }
   };
 
-  const addChild = () => {
-    const newChild: Child = {
+  const addRepeatableGroupItem = (groupName: string) => {
+    const newItem: RepeatableGroupItem = {
       id: Date.now().toString(),
-      child_name: '',
-      child_dob: '',
-      child_blood_group: '',
     };
-    setChildren([...children, newChild]);
+    
+    // Initialize all fields in the group
+    const groupField = getFieldByName(groupName);
+    if (groupField && groupField.fields) {
+      groupField.fields.forEach(field => {
+        if (field.type === 'checkbox') {
+          newItem[field.name] = false;
+        } else if (field.type === 'toggle' && field.options && field.options.length > 0) {
+          newItem[field.name] = field.options[0];
+        } else {
+          newItem[field.name] = '';
+        }
+      });
+    }
+    
+    setRepeatableGroups(prev => ({
+      ...prev,
+      [groupName]: [...(prev[groupName] || []), newItem]
+    }));
   };
 
-  const removeChild = (id: string) => {
-    setChildren(children.filter(child => child.id !== id));
-    // Remove child errors
+  const removeRepeatableGroupItem = (groupName: string, id: string) => {
+    setRepeatableGroups(prev => ({
+      ...prev,
+      [groupName]: prev[groupName].filter(item => item.id !== id)
+    }));
+    
+    // Remove group item errors
     setErrors(prev => {
       const newErrors = { ...prev };
-      if (newErrors.children && typeof newErrors.children === 'object') {
-        delete (newErrors.children as { [key: string]: any })[id];
+      if (newErrors[groupName] && typeof newErrors[groupName] === 'object') {
+        delete (newErrors[groupName] as { [key: string]: any })[id];
       }
       return newErrors;
     });
@@ -492,39 +603,49 @@ const SuvidhaCardRegistrationScreen = () => {
     formSchema.sections.forEach(section => {
       if (shouldShowSection(section)) {
         section.fields.forEach(field => {
-          const error = validateField(field, formData[field.id]);
-          if (error) {
-            newErrors[field.id] = error;
-            hasErrors = true;
+          if (field.type === 'repeatable_group') {
+            // Skip validation for repeatable groups here, handle separately
+            return;
+          }
+          
+          if (shouldShowField(field)) {
+            const error = validateField(field, formData[field.name]);
+            if (error) {
+              newErrors[field.name] = error;
+              hasErrors = true;
+            }
           }
         });
       }
     });
     
-    // Validate children
-    const childrenErrors: { [key: string]: { [key: string]: string } } = {};
-    children.forEach(child => {
-      const childErrors: { [key: string]: string } = {};
-      
-      ['child_name', 'child_dob', 'child_blood_group'].forEach(fieldId => {
-        const field = getChildField(fieldId);
-        if (field) {
-          const error = validateField(field, child[fieldId]);
-          if (error) {
-            childErrors[fieldId] = error;
-            hasErrors = true;
+    // Validate repeatable groups
+    Object.entries(repeatableGroups).forEach(([groupName, items]) => {
+      const groupField = getFieldByName(groupName);
+      if (groupField && groupField.fields) {
+        const groupErrors: { [key: string]: { [key: string]: string } } = {};
+        
+        items.forEach(item => {
+          const itemErrors: { [key: string]: string } = {};
+          
+          groupField.fields!.forEach(field => {
+            const error = validateField(field, item[field.name]);
+            if (error) {
+              itemErrors[field.name] = error;
+              hasErrors = true;
+            }
+          });
+          
+          if (Object.keys(itemErrors).length > 0) {
+            groupErrors[item.id] = itemErrors;
           }
+        });
+        
+        if (Object.keys(groupErrors).length > 0) {
+          newErrors[groupName] = groupErrors;
         }
-      });
-      
-      if (Object.keys(childErrors).length > 0) {
-        childrenErrors[child.id] = childErrors;
       }
     });
-    
-    if (Object.keys(childrenErrors).length > 0) {
-      newErrors.children = childrenErrors;
-    }
     
     setErrors(newErrors);
     
@@ -549,29 +670,66 @@ const SuvidhaCardRegistrationScreen = () => {
     field: FormField,
     value: any,
     error?: string,
-    childId?: string
+    groupId?: string,
+    groupName?: string
   ) => {
     const handleChange = (newValue: any) => {
-      handleFieldChange(field.id, newValue, childId);
+      handleFieldChange(field.name, newValue, groupId, groupName);
     };
 
     const handleBlur = () => {
       const fieldError = validateField(field, value);
-      if (childId) {
+      if (groupId && groupName) {
         setErrors(prev => ({
           ...prev,
-          children: {
-            ...((prev.children as { [key: string]: { [key: string]: string } }) || {}),
-            [childId]: {
-              ...((prev.children as { [key: string]: { [key: string]: string } })?.[childId] || {}),
-              [field.id]: fieldError || ''
+          [groupName]: {
+            ...((prev[groupName] as { [key: string]: { [key: string]: string } }) || {}),
+            [groupId]: {
+              ...((prev[groupName] as { [key: string]: { [key: string]: string } })?.[groupId] || {}),
+              [field.name]: fieldError || ''
             }
           }
         }));
       } else {
-        setErrors(prev => ({ ...prev, [field.id]: fieldError || '' }));
+        setErrors(prev => ({ ...prev, [field.name]: fieldError || '' }));
       }
     };
+
+    // Toggle input
+    if (field.type === 'toggle') {
+      return (
+        <View>
+          <View style={styles.toggleContainer}>
+            {field.options?.map((option, index) => (
+              <TouchableOpacity
+                key={option}
+                style={[
+                  styles.toggleOption,
+                  value === option && styles.toggleOptionActive,
+                  error && styles.toggleOptionError,
+                  index === 0 && styles.toggleOptionFirst,
+                  index === (field.options?.length || 0) - 1 && styles.toggleOptionLast
+                ]}
+                onPress={() => handleChange(option)}
+              >
+                <Text style={[
+                  styles.toggleOptionText,
+                  value === option && styles.toggleOptionTextActive
+                ]}>
+                  {option}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          {error && (
+            <View style={styles.errorContainer}>
+              <MaterialIcons name="error-outline" size={16} color={Colors.error} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+        </View>
+      );
+    }
 
     // Checkbox input
     if (field.type === 'checkbox') {
@@ -620,7 +778,7 @@ const SuvidhaCardRegistrationScreen = () => {
               error && styles.inputError,
               value && styles.inputFilled
             ]}
-            onPress={() => openDatePicker(field.id, childId)}
+            onPress={() => openDatePicker(field.name, groupId, groupName)}
           >
             <Text style={[
               styles.inputText,
@@ -637,7 +795,7 @@ const SuvidhaCardRegistrationScreen = () => {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.calendarFallbackButton}
-            onPress={() => openCalendar(field.id, childId)}
+            onPress={() => openCalendar(field.name, groupId, groupName)}
           >
             <MaterialIcons name="event" size={16} color={Colors.primary} />
             <Text style={styles.calendarFallbackText}>Use Calendar</Text>
@@ -661,7 +819,7 @@ const SuvidhaCardRegistrationScreen = () => {
               styles.imageUpload,
               error && styles.imageUploadError
             ]} 
-            onPress={() => handleImagePicker(field.id, childId)}
+            onPress={() => handleImagePicker(field.name, groupId, groupName)}
           >
             {value ? (
               <View style={styles.imagePreviewContainer}>
@@ -781,73 +939,94 @@ const SuvidhaCardRegistrationScreen = () => {
           <Text style={styles.sectionTitle}>{section.title}</Text>
         </View>
         
-        {section.fields.map(field => (
-          <View key={field.id} style={styles.inputGroup}>
-            {field.type !== 'checkbox' && (
-              <Text style={styles.label}>
-                {field.label} {field.required && '*'}
-              </Text>
-            )}
-            {renderInput(field, formData[field.id], errors[field.id] as string)}
-          </View>
-        ))}
+        {section.fields.map(field => {
+          if (field.type === 'repeatable_group') {
+            return renderRepeatableGroup(field);
+          }
+          
+          if (!shouldShowField(field)) {
+            return null;
+          }
+          
+          return (
+            <View key={field.name} style={styles.inputGroup}>
+              {field.type !== 'checkbox' && (
+                <Text style={styles.label}>
+                  {field.label} {field.required && '*'}
+                </Text>
+              )}
+              {renderInput(field, formData[field.name], errors[field.name] as string)}
+            </View>
+          );
+        })}
       </View>
     );
   };
 
-  const renderChildCard = (child: Child, index: number) => (
-    <Animated.View key={child.id} style={styles.childCard}>
-      <View style={styles.childHeader}>
-        <View style={styles.childTitleContainer}>
-          <MaterialIcons name="child-care" size={24} color={Colors.primary} />
-          <Text style={styles.childTitle}>Child {index + 1}</Text>
+  const renderRepeatableGroup = (groupField: FormField) => {
+    const groupItems = repeatableGroups[groupField.name] || [];
+    
+    return (
+      <View key={groupField.name} style={styles.repeatableGroupContainer}>
+        <View style={styles.repeatableGroupHeader}>
+          <Text style={styles.subsectionTitle}>{groupField.label}</Text>
+          <TouchableOpacity 
+            style={styles.addButton} 
+            onPress={() => addRepeatableGroupItem(groupField.name)}
+          >
+            <MaterialIcons name="add" size={18} color="white" />
+            <Text style={styles.addButtonText}>Add {groupField.label}</Text>
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          onPress={() => removeChild(child.id)}
-          style={styles.removeButton}
-        >
-          <MaterialIcons name="close" size={20} color={Colors.error} />
-        </TouchableOpacity>
-      </View>
-      
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Child&apos;s Name *</Text>
-        {renderInput(
-          { id: 'child_name', name: 'child_name', type: 'text', label: 'Child Name', required: true },
-          child.child_name || '',
-          ((errors.children as { [key: string]: { [key: string]: string } })?.[child.id]?.child_name),
-          child.id
-        )}
-      </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Date of Birth *</Text>
-        {renderInput(
-          { id: 'child_dob', name: 'child_dob', type: 'date', label: 'Date of Birth', required: true },
-          child.child_dob || '',
-          ((errors.children as { [key: string]: { [key: string]: string } })?.[child.id]?.child_dob),
-          child.id
+        {groupItems.map((item, index) => (
+          <Animated.View key={item.id} style={styles.repeatableGroupItem}>
+            <View style={styles.repeatableGroupItemHeader}>
+              <View style={styles.repeatableGroupItemTitleContainer}>
+                <MaterialIcons name="folder" size={24} color={Colors.primary} />
+                <Text style={styles.repeatableGroupItemTitle}>
+                  {groupField.label} {index + 1}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => removeRepeatableGroupItem(groupField.name, item.id)}
+                style={styles.removeButton}
+              >
+                <MaterialIcons name="close" size={20} color={Colors.error} />
+              </TouchableOpacity>
+            </View>
+            
+            {groupField.fields?.map(field => (
+              <View key={field.name} style={styles.inputGroup}>
+                {field.type !== 'checkbox' && (
+                  <Text style={styles.label}>
+                    {field.label} {field.required && '*'}
+                  </Text>
+                )}
+                {renderInput(
+                  field,
+                  item[field.name] || '',
+                  ((errors[groupField.name] as { [key: string]: { [key: string]: string } })?.[item.id]?.[field.name]),
+                  item.id,
+                  groupField.name
+                )}
+              </View>
+            ))}
+          </Animated.View>
+        ))}
+        
+        {groupItems.length === 0 && (
+          <View style={styles.emptyRepeatableGroupContainer}>
+            <MaterialIcons name="folder-open" size={48} color={Colors.textLight} />
+            <Text style={styles.emptyRepeatableGroupText}>No {groupField.label.toLowerCase()} added yet</Text>
+            <Text style={styles.emptyRepeatableGroupSubtext}>
+              Tap &quot;Add {groupField.label}&quot; to include {groupField.label.toLowerCase()}
+            </Text>
+          </View>
         )}
       </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Blood Group *</Text>
-        {renderInput(
-          { 
-            id: 'child_blood_group', 
-            name: 'child_blood_group', 
-            type: 'select', 
-            label: 'Blood Group', 
-            required: true,
-            options: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
-          },
-          child.child_blood_group || '',
-          ((errors.children as { [key: string]: { [key: string]: string } })?.[child.id]?.child_blood_group),
-          child.id
-        )}
-      </View>
-    </Animated.View>
-  );
+    );
+  };
 
   if (loading) {
     return (
@@ -913,32 +1092,6 @@ const SuvidhaCardRegistrationScreen = () => {
           {/* Dynamic Form Sections */}
           {formSchema.sections.map(renderSection)}
 
-          {/* Children Section */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <MaterialIcons name="child-care" size={24} color={Colors.primary} />
-              <Text style={styles.sectionTitle}>Children Details</Text>
-            </View>
-            
-            <View style={styles.childrenHeader}>
-              <Text style={styles.subsectionTitle}>Add Children Information</Text>
-              <TouchableOpacity style={styles.addChildButton} onPress={addChild}>
-                <MaterialIcons name="add" size={18} color="white" />
-                <Text style={styles.addChildText}>Add Child</Text>
-              </TouchableOpacity>
-            </View>
-
-            {children.map((child, index) => renderChildCard(child, index))}
-            
-            {children.length === 0 && (
-              <View style={styles.emptyChildrenContainer}>
-                <MaterialIcons name="child-friendly" size={48} color={Colors.textLight} />
-                <Text style={styles.emptyChildrenText}>No children added yet</Text>
-                <Text style={styles.emptyChildrenSubtext}>Tap &quot;Add Child&quot; to include children details</Text>
-              </View>
-            )}
-          </View>
-
           {/* Submit Button */}
           <TouchableOpacity 
             style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]} 
@@ -968,27 +1121,27 @@ const SuvidhaCardRegistrationScreen = () => {
           transparent={true}
           animationType="slide"
           visible={showDatePicker}
-          onRequestClose={() => setShowDatePicker(false)}
+          onRequestClose={handleDatePickerCancel}
         >
           <View style={styles.datePickerModal}>
             <View style={styles.datePickerContainer}>
               <View style={styles.datePickerHeader}>
                 <TouchableOpacity
-                  onPress={() => setShowDatePicker(false)}
+                  onPress={handleDatePickerCancel}
                   style={styles.datePickerButton}
                 >
                   <Text style={styles.datePickerButtonText}>Cancel</Text>
                 </TouchableOpacity>
                 <Text style={styles.datePickerTitle}>Select Date</Text>
                 <TouchableOpacity
-                  onPress={() => handleDateSelect(null, currentDate)}
+                  onPress={handleDatePickerDone}
                   style={styles.datePickerButton}
                 >
                   <Text style={[styles.datePickerButtonText, styles.datePickerDoneButton]}>Done</Text>
                 </TouchableOpacity>
               </View>
               <DateTimePicker
-                value={currentDate}
+                value={tempDate}
                 mode="date"
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                 onChange={handleDateSelect}
@@ -1249,6 +1402,44 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     flex: 1,
   },
+  // Toggle styles
+  toggleContainer: {
+    flexDirection: 'row',
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: Colors.border,
+  },
+  toggleOption: {
+    flex: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: Colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toggleOptionFirst: {
+    borderTopLeftRadius: 10,
+    borderBottomLeftRadius: 10,
+  },
+  toggleOptionLast: {
+    borderTopRightRadius: 10,
+    borderBottomRightRadius: 10,
+  },
+  toggleOptionActive: {
+    backgroundColor: Colors.primary,
+  },
+  toggleOptionError: {
+    borderColor: Colors.error,
+  },
+  toggleOptionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  toggleOptionTextActive: {
+    color: 'white',
+  },
   // Checkbox styles
   checkboxContainer: {
     flexDirection: 'row',
@@ -1405,13 +1596,17 @@ const styles = StyleSheet.create({
   datePicker: {
     backgroundColor: Colors.card,
   },
-  childrenHeader: {
+  // Repeatable group styles
+  repeatableGroupContainer: {
+    marginBottom: 20,
+  },
+  repeatableGroupHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
   },
-  addChildButton: {
+  addButton: {
     backgroundColor: Colors.secondary,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1424,13 +1619,13 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  addChildText: {
+  addButtonText: {
     color: 'white',
     fontWeight: '600',
     marginLeft: 8,
     fontSize: 14,
   },
-  childCard: {
+  repeatableGroupItem: {
     backgroundColor: Colors.background,
     borderRadius: 16,
     padding: 20,
@@ -1443,17 +1638,17 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  childHeader: {
+  repeatableGroupItemHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
   },
-  childTitleContainer: {
+  repeatableGroupItemTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  childTitle: {
+  repeatableGroupItemTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: Colors.text,
@@ -1467,18 +1662,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  emptyChildrenContainer: {
+  emptyRepeatableGroupContainer: {
     alignItems: 'center',
     paddingVertical: 40,
   },
-  emptyChildrenText: {
+  emptyRepeatableGroupText: {
     fontSize: 18,
     fontWeight: '600',
     color: Colors.textLight,
     marginTop: 16,
     marginBottom: 8,
   },
-  emptyChildrenSubtext: {
+  emptyRepeatableGroupSubtext: {
     fontSize: 14,
     color: Colors.textLight,
     textAlign: 'center',
