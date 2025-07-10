@@ -12,6 +12,8 @@ import TempleDetailScreen from './screens/TempleDetailScreen';
 import DaysEventsScreen from './screens/DaysEventsScreen';
 import DaysNewsScreen from './screens/DaysNewsScreen';
 import SuvidhaCardRegistrationScreen from './screens/SuvidhaCardRegistrationScreen';
+import SuvidhaCardSuccessScreen from './screens/SuvidhaCardSuccessScreen';
+import SuvidhaCardFailureScreen from './screens/SuvidhaCardFailureScreen';
 import { StatusBar } from 'react-native';
 import Colors from './constants/Colors';
 
@@ -26,6 +28,8 @@ type RootStackParamList = {
   DaysEvents: undefined;
   DaysNews: undefined;
   SuvidhaCardRegistration: undefined;
+  SuvidhaCardSuccess: { applicationData?: any; submittedData?: any };
+  SuvidhaCardFailure: { error?: string; errorDetails?: any; submittedData?: any };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -54,6 +58,8 @@ export default function App() {
           <Stack.Screen name="DaysEvents" component={DaysEventsScreen} />
           <Stack.Screen name="DaysNews" component={DaysNewsScreen} />
           <Stack.Screen name="SuvidhaCardRegistration" component={SuvidhaCardRegistrationScreen} />
+          <Stack.Screen name="SuvidhaCardSuccess" component={SuvidhaCardSuccessScreen} />
+          <Stack.Screen name="SuvidhaCardFailure" component={SuvidhaCardFailureScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

@@ -1,14 +1,16 @@
-export default {
-  primary: '#4A6FFF',
-  secondary: '#32D74B',
-  background: '#F8F9FD',
+const Colors = {
+  primary: '#FF6B35',
+  secondary: '#4ECDC4',
+  background: '#F8F9FA',
   card: '#FFFFFF',
-  text: '#1A1D1E',
-  textLight: '#71787E',
-  border: '#E8ECF4',
-  error: '#FF3B30',
-  success: '#34C759',
-  warning: '#FF9500',
-  info: '#007AFF',
-  cardShadow: 'rgba(0, 0, 0, 0.05)',
+  text: '#2C3E50',
+  textLight: '#7F8C8D',
+  border: '#E9ECEF',
+  warning: '#F39C12',
+  success: '#27AE60',
+  error: '#E74C3C',
+  info: '#3498DB',
+  cardShadow: '#000000',
 };
+
+export default Colors;

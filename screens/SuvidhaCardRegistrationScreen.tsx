@@ -655,15 +655,50 @@ const SuvidhaCardRegistrationScreen = () => {
       return;
     }
 
-    // Simulate API submission
-    setTimeout(() => {
+    try {
+      // Prepare submission data
+      const submissionData = {
+        ...formData,
+        ...repeatableGroups,
+        submitted_at: new Date().toISOString(),
+      };
+
+      // Submit to API
+      const response = await fetch('https://www.daysahmedabad.com/api/suvidha/submit/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(submissionData),
+      });
+
+      const responseData = await response.json();
+
+      if (response.ok) {
+        // Success - navigate to success page
+        (navigation as any).navigate('SuvidhaCardSuccess', { 
+          applicationData: responseData,
+          submittedData: submissionData 
+        });
+      } else {
+        // API returned error - navigate to failure page
+        (navigation as any).navigate('SuvidhaCardFailure', { 
+          error: responseData.message || 'Submission failed',
+          errorDetails: responseData,
+          submittedData: submissionData
+        });
+      }
+    } catch (error) {
+      console.error('Submission error:', error);
+      // Network or other error - navigate to failure page
+      (navigation as any).navigate('SuvidhaCardFailure', { 
+        error: 'Network error. Please check your internet connection and try again.',
+        errorDetails: error,
+        submittedData: { ...formData, ...repeatableGroups }
+      });
+    } finally {
       setIsSubmitting(false);
-      Alert.alert(
-        'Application Submitted! 🎉',
-        'Your DAYS Suvidha Card application has been submitted successfully. You will receive a confirmation email shortly.',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
-    }, 2000);
+    }
   };
 
   const renderInput = (
