@@ -110,109 +110,116 @@ const AboutScreen = () => {
     Linking.openURL(url);
   };
 
-  const renderModernTrusteeCard = (trustee: TrusteeMember, index: number) => (
-    <View key={trustee.id} style={[styles.modernTrusteeCard, index % 2 === 1 && styles.trusteeCardOffset]}>
-      <View style={styles.trusteeCardHeader}>
-        <View style={styles.trusteeAvatarContainer}>
-          {trustee.image ? (
-            <Image source={{ uri: trustee.image }} style={styles.trusteeAvatar} />
-          ) : (
-            <View style={styles.trusteeAvatarPlaceholder}>
-              <Text style={styles.trusteeAvatarText}>
-                {trustee.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
-              </Text>
-            </View>
-          )}
-          <View style={styles.trusteeStatusBadge}>
-            <MaterialIcons name="verified" size={12} color="white" />
+  const renderTrusteeProfile = (trustee: TrusteeMember) => (
+    <View key={trustee.id} style={styles.profileCard}>
+      <View style={styles.profileImageContainer}>
+        {trustee.image ? (
+          <Image source={{ uri: trustee.image }} style={styles.profileImage} />
+        ) : (
+          <View style={styles.profileImagePlaceholder}>
+            <Text style={styles.profileImageText}>
+              {trustee.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+            </Text>
           </View>
-        </View>
-        <View style={styles.trusteeHeaderInfo}>
-          <Text style={styles.trusteeName}>{trustee.name}</Text>
-          <Text style={styles.trusteeDesignation}>{trustee.designation}</Text>
+        )}
+        <View style={styles.profileBadge}>
+          <MaterialIcons name="verified" size={16} color="white" />
         </View>
       </View>
       
-      <Text style={styles.trusteeDescription}>{trustee.description}</Text>
-      
-      <View style={styles.trusteeActions}>
+      <View style={styles.profileInfo}>
+        <Text style={styles.profileName}>{trustee.name}</Text>
+        <Text style={styles.profileDesignation}>{trustee.designation}</Text>
+        {trustee.description && (
+          <Text style={styles.profileDescription}>{trustee.description}</Text>
+        )}
+      </View>
+
+      <View style={styles.profileActions}>
         {trustee.email && (
           <TouchableOpacity 
-            style={styles.trusteeActionButton}
+            style={styles.profileActionButton}
             onPress={() => handleEmailPress(trustee.email!)}
           >
-            <MaterialIcons name="email" size={16} color={Colors.primary} />
+            <MaterialIcons name="email" size={18} color={Colors.primary} />
           </TouchableOpacity>
         )}
         {trustee.phone && (
           <TouchableOpacity 
-            style={styles.trusteeActionButton}
+            style={styles.profileActionButton}
             onPress={() => handleContactPress(trustee.phone!)}
           >
-            <MaterialIcons name="phone" size={16} color={Colors.primary} />
+            <MaterialIcons name="phone" size={18} color={Colors.primary} />
           </TouchableOpacity>
         )}
       </View>
     </View>
   );
 
-  const renderModernMemberCard = (member: RegularMember) => (
-    <View key={member.id} style={styles.modernMemberCard}>
-      <View style={styles.memberCardTop}>
-        <View style={styles.memberAvatarContainer}>
-          {member.image ? (
-            <Image source={{ uri: member.image }} style={styles.memberAvatar} />
-          ) : (
-            <View style={styles.memberAvatarPlaceholder}>
-              <Text style={styles.memberAvatarText}>
-                {member.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
-              </Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.memberDepartmentBadge}>
-          <Text style={styles.memberDepartmentText}>{member.department}</Text>
+  const renderMemberProfile = (member: RegularMember) => (
+    <View key={member.id} style={styles.memberProfile}>
+      <View style={styles.memberImageContainer}>
+        {member.image ? (
+          <Image source={{ uri: member.image }} style={styles.memberImage} />
+        ) : (
+          <View style={styles.memberImagePlaceholder}>
+            <Text style={styles.memberImageText}>
+              {member.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+            </Text>
+          </View>
+        )}
+        <View style={styles.memberDepartmentDot}>
+          <View style={[styles.departmentIndicator, { backgroundColor: getDepartmentColor(member.department) }]} />
         </View>
       </View>
       
-      <View style={styles.memberCardContent}>
+      <View style={styles.memberInfo}>
         <Text style={styles.memberName}>{member.name}</Text>
         <Text style={styles.memberPost}>{member.post}</Text>
+        <Text style={styles.memberDepartment}>{member.department}</Text>
       </View>
     </View>
   );
 
-  const renderDeveloperCard = () => (
-    <View style={styles.developerCard}>
-      <View style={styles.developerHeader}>
-        <View style={styles.developerIconContainer}>
-          <MaterialIcons name="code" size={32} color={Colors.primary} />
-        </View>
-        <View style={styles.developerInfo}>
-          <Text style={styles.developerName}>{developer.name}</Text>
-          <Text style={styles.developerRole}>{developer.role}</Text>
+  const getDepartmentColor = (department?: string) => {
+    const colors = {
+      'Operations': Colors.primary,
+      'Programs': Colors.secondary,
+      'Marketing': Colors.warning,
+      'Technology': Colors.info,
+      'Community': Colors.success,
+      'Finance': Colors.error,
+    };
+    return colors[department as keyof typeof colors] || Colors.textLight;
+  };
+
+  const renderDeveloperProfile = () => (
+    <View style={styles.developerProfile}>
+      <View style={styles.developerImageContainer}>
+        <View style={styles.developerImagePlaceholder}>
+          <MaterialIcons name="code" size={40} color={Colors.primary} />
         </View>
         <View style={styles.developerBadge}>
-          <MaterialIcons name="star" size={16} color="white" />
+          <MaterialIcons name="star" size={14} color="white" />
         </View>
       </View>
       
-      <Text style={styles.developerDescription}>
-        Crafted with passion and precision, this app represents our commitment to delivering 
-        exceptional digital experiences for the DAYS community.
-      </Text>
-      
+      <View style={styles.developerInfo}>
+        <Text style={styles.developerName}>{developer.name}</Text>
+        <Text style={styles.developerRole}>{developer.role}</Text>
+        <Text style={styles.developerDescription}>
+          Crafted with passion and precision for the DAYS community
+        </Text>
+      </View>
+
       <View style={styles.skillsContainer}>
-        <Text style={styles.skillsTitle}>Technologies Used:</Text>
-        <View style={styles.skillsGrid}>
-          {developer.skills.map((skill, index) => (
-            <View key={index} style={styles.skillChip}>
-              <Text style={styles.skillText}>{skill}</Text>
-            </View>
-          ))}
-        </View>
+        {developer.skills.map((skill, index) => (
+          <View key={index} style={styles.skillTag}>
+            <Text style={styles.skillText}>{skill}</Text>
+          </View>
+        ))}
       </View>
-      
+
       <View style={styles.developerActions}>
         {developer.social?.email && (
           <TouchableOpacity 
@@ -293,7 +300,7 @@ const AboutScreen = () => {
           </View>
         </View>
 
-        {/* Modern Trustee Members Section */}
+        {/* Board of Trustees Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <MaterialIcons name="supervisor-account" size={28} color={Colors.primary} />
@@ -303,12 +310,12 @@ const AboutScreen = () => {
             </View>
           </View>
           
-          <View style={styles.modernTrusteesContainer}>
-            {trustees.map((trustee, index) => renderModernTrusteeCard(trustee, index))}
+          <View style={styles.profilesGrid}>
+            {trustees.map(renderTrusteeProfile)}
           </View>
         </View>
 
-        {/* Modern Team Members Section */}
+        {/* Team Members Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <MaterialIcons name="groups" size={28} color={Colors.secondary} />
@@ -318,8 +325,8 @@ const AboutScreen = () => {
             </View>
           </View>
           
-          <View style={styles.modernMembersGrid}>
-            {regularMembers.map(renderModernMemberCard)}
+          <View style={styles.membersGrid}>
+            {regularMembers.map(renderMemberProfile)}
           </View>
         </View>
 
@@ -356,7 +363,7 @@ const AboutScreen = () => {
             </View>
           </View>
           
-          {renderDeveloperCard()}
+          {renderDeveloperProfile()}
         </View>
 
         {/* Contact Information */}
@@ -532,14 +539,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textLight,
   },
-  // Modern Trustee Cards
-  modernTrusteesContainer: {
+  // Modern Profile Cards for Trustees
+  profilesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
     gap: 16,
   },
-  modernTrusteeCard: {
+  profileCard: {
     backgroundColor: Colors.card,
     borderRadius: 24,
-    padding: 24,
+    padding: 20,
+    width: '48%',
+    alignItems: 'center',
     shadowColor: Colors.cardShadow,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.15,
@@ -548,98 +560,94 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: `${Colors.primary}08`,
   },
-  trusteeCardOffset: {
-    marginLeft: 20,
-  },
-  trusteeCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  profileImageContainer: {
+    position: 'relative',
     marginBottom: 16,
   },
-  trusteeAvatarContainer: {
-    position: 'relative',
-    marginRight: 16,
+  profileImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
   },
-  trusteeAvatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-  },
-  trusteeAvatarPlaceholder: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: `${Colors.primary}20`,
+  profileImagePlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: `${Colors.primary}15`,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: `${Colors.primary}30`,
+    borderColor: `${Colors.primary}20`,
   },
-  trusteeAvatarText: {
-    fontSize: 20,
+  profileImageText: {
+    fontSize: 24,
     fontWeight: 'bold',
     color: Colors.primary,
   },
-  trusteeStatusBadge: {
+  profileBadge: {
     position: 'absolute',
     bottom: -2,
     right: -2,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: Colors.success,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
     borderColor: Colors.card,
   },
-  trusteeHeaderInfo: {
-    flex: 1,
-  },
-  trusteeName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginBottom: 4,
-  },
-  trusteeDesignation: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  trusteeDescription: {
-    fontSize: 14,
-    color: Colors.textLight,
-    lineHeight: 22,
+  profileInfo: {
+    alignItems: 'center',
     marginBottom: 16,
   },
-  trusteeActions: {
+  profileName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: Colors.text,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  profileDesignation: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.primary,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  profileDescription: {
+    fontSize: 11,
+    color: Colors.textLight,
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  profileActions: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
     gap: 8,
   },
-  trusteeActionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  profileActionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: `${Colors.primary}10`,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: `${Colors.primary}20`,
   },
-  // Modern Member Cards
-  modernMembersGrid: {
+  // Modern Profile Cards for Team Members
+  membersGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     gap: 12,
   },
-  modernMemberCard: {
+  memberProfile: {
     backgroundColor: Colors.card,
     borderRadius: 20,
     padding: 16,
     width: '31%',
+    alignItems: 'center',
     shadowColor: Colors.cardShadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.12,
@@ -648,46 +656,47 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: `${Colors.secondary}08`,
   },
-  memberCardTop: {
-    alignItems: 'center',
-    marginBottom: 12,
+  memberImageContainer: {
     position: 'relative',
+    marginBottom: 12,
   },
-  memberAvatarContainer: {
-    marginBottom: 8,
+  memberImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
   },
-  memberAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-  },
-  memberAvatarPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: `${Colors.secondary}20`,
+  memberImagePlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: `${Colors.secondary}15`,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: `${Colors.secondary}30`,
+    borderColor: `${Colors.secondary}20`,
   },
-  memberAvatarText: {
-    fontSize: 16,
+  memberImageText: {
+    fontSize: 18,
     fontWeight: 'bold',
     color: Colors.secondary,
   },
-  memberDepartmentBadge: {
-    backgroundColor: `${Colors.secondary}15`,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+  memberDepartmentDot: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.card,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  memberDepartmentText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: Colors.secondary,
+  departmentIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
-  memberCardContent: {
+  memberInfo: {
     alignItems: 'center',
   },
   memberName: {
@@ -695,19 +704,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.text,
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   memberPost: {
     fontSize: 11,
     color: Colors.textLight,
     textAlign: 'center',
-    lineHeight: 14,
+    marginBottom: 2,
   },
-  // Developer Card
-  developerCard: {
+  memberDepartment: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: Colors.secondary,
+    textAlign: 'center',
+  },
+  // Developer Profile
+  developerProfile: {
     backgroundColor: Colors.card,
     borderRadius: 24,
     padding: 24,
+    alignItems: 'center',
     shadowColor: Colors.cardShadow,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.2,
@@ -715,69 +731,67 @@ const styles = StyleSheet.create({
     elevation: 10,
     borderWidth: 2,
     borderColor: `${Colors.warning}20`,
-    position: 'relative',
-    overflow: 'hidden',
   },
-  developerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  developerImageContainer: {
+    position: 'relative',
     marginBottom: 16,
   },
-  developerIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
+  developerImagePlaceholder: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     backgroundColor: `${Colors.primary}15`,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: `${Colors.primary}20`,
   },
+  developerBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.warning,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: Colors.card,
+  },
   developerInfo: {
-    flex: 1,
+    alignItems: 'center',
+    marginBottom: 20,
   },
   developerName: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: Colors.text,
+    textAlign: 'center',
     marginBottom: 4,
   },
   developerRole: {
     fontSize: 14,
     fontWeight: '600',
     color: Colors.warning,
-  },
-  developerBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.warning,
-    justifyContent: 'center',
-    alignItems: 'center',
+    textAlign: 'center',
+    marginBottom: 8,
   },
   developerDescription: {
     fontSize: 14,
     color: Colors.textLight,
-    lineHeight: 22,
-    marginBottom: 20,
+    textAlign: 'center',
+    lineHeight: 20,
     fontStyle: 'italic',
   },
   skillsContainer: {
-    marginBottom: 20,
-  },
-  skillsTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.text,
-    marginBottom: 12,
-  },
-  skillsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: 8,
+    marginBottom: 20,
   },
-  skillChip: {
+  skillTag: {
     backgroundColor: `${Colors.primary}10`,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -792,7 +806,6 @@ const styles = StyleSheet.create({
   },
   developerActions: {
     flexDirection: 'row',
-    justifyContent: 'center',
     gap: 12,
   },
   developerActionButton: {
@@ -808,7 +821,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  // Impact and Contact sections remain the same
+  // Impact and Contact sections
   impactSection: {
     paddingHorizontal: 20,
     marginBottom: 32,
