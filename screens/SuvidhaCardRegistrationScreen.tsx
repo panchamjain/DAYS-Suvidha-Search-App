@@ -1199,7 +1199,7 @@ const SuvidhaCardRegistrationScreen = () => {
             <MaterialIcons name="folder-open" size={48} color={Colors.textLight} />
             <Text style={styles.emptyRepeatableGroupText}>No {groupField.label.toLowerCase()} added yet</Text>
             <Text style={styles.emptyRepeatableGroupSubtext}>
-              Tap &quot;Add {groupField.label}&quot; to include {groupField.label.toLowerCase()}
+              Tap "Add {groupField.label}" to include {groupField.label.toLowerCase()}
             </Text>
           </View>
         )}
@@ -1225,7 +1225,7 @@ const SuvidhaCardRegistrationScreen = () => {
       <SafeAreaView style={styles.container}>
         <StatusBar backgroundColor={Colors.primary} barStyle="light-content" />
         <Header title="Suvidha Card Registration" showBackButton />
-        <View style={styles.errorContainer}>
+        <View style={styles.errorScreenContainer}>
           <MaterialIcons name="error-outline" size={64} color={Colors.error} />
           <Text style={styles.errorTitle}>Failed to Load Form</Text>
           <Text style={styles.errorMessage}>Please check your internet connection and try again.</Text>
@@ -1246,23 +1246,56 @@ const SuvidhaCardRegistrationScreen = () => {
         <View style={styles.content}>
           {/* Modern Header Section */}
           <View style={styles.headerSection}>
-            <View style={styles.headerGradient}>
-              <View style={styles.cardIconContainer}>
-                <View style={styles.cardIcon}>
-                  <MaterialIcons name="card-membership" size={32} color="white" />
+            <View style={styles.headerCard}>
+              <View style={styles.headerImageContainer}>
+                <View style={styles.headerImage}>
+                  <MaterialIcons name="card-membership" size={64} color={Colors.primary} />
                 </View>
-                <View style={styles.cardIconRing} />
+                <View style={styles.headerImageGlow} />
               </View>
-              <Text style={styles.headerTitle}>{formSchema.title}</Text>
-              <Text style={styles.headerSubtitle}>{formSchema.description}</Text>
-              <View style={styles.benefitsContainer}>
-                <View style={styles.benefitItem}>
-                  <MaterialIcons name="local-offer" size={16} color="rgba(255,255,255,0.9)" />
-                  <Text style={styles.benefitText}>Exclusive Discounts</Text>
+              
+              <View style={styles.headerContent}>
+                <Text style={styles.headerTitle}>{formSchema.title}</Text>
+                <Text style={styles.headerDescription}>{formSchema.description}</Text>
+                
+                <View style={styles.featuresContainer}>
+                  <View style={styles.featureRow}>
+                    <View style={styles.featureItem}>
+                      <MaterialIcons name="local-offer" size={20} color={Colors.success} />
+                      <Text style={styles.featureText}>Exclusive Discounts</Text>
+                    </View>
+                    <View style={styles.featureItem}>
+                      <MaterialIcons name="verified" size={20} color={Colors.info} />
+                      <Text style={styles.featureText}>Verified Merchants</Text>
+                    </View>
+                  </View>
+                  <View style={styles.featureRow}>
+                    <View style={styles.featureItem}>
+                      <MaterialIcons name="location-on" size={20} color={Colors.warning} />
+                      <Text style={styles.featureText}>City-wide Access</Text>
+                    </View>
+                    <View style={styles.featureItem}>
+                      <MaterialIcons name="security" size={20} color={Colors.primary} />
+                      <Text style={styles.featureText}>Secure & Safe</Text>
+                    </View>
+                  </View>
                 </View>
-                <View style={styles.benefitItem}>
-                  <MaterialIcons name="verified" size={16} color="rgba(255,255,255,0.9)" />
-                  <Text style={styles.benefitText}>Verified Merchants</Text>
+                
+                <View style={styles.statsContainer}>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statNumber}>1000+</Text>
+                    <Text style={styles.statLabel}>Members</Text>
+                  </View>
+                  <View style={styles.statDivider} />
+                  <View style={styles.statItem}>
+                    <Text style={styles.statNumber}>500+</Text>
+                    <Text style={styles.statLabel}>Merchants</Text>
+                  </View>
+                  <View style={styles.statDivider} />
+                  <View style={styles.statItem}>
+                    <Text style={styles.statNumber}>50+</Text>
+                    <Text style={styles.statLabel}>Categories</Text>
+                  </View>
                 </View>
               </View>
             </View>
@@ -1403,10 +1436,11 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontWeight: '500',
   },
-  errorContainer: {
-    flexDirection: 'row',
+  errorScreenContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
+    padding: 40,
   },
   errorTitle: {
     fontSize: 20,
@@ -1436,71 +1470,121 @@ const styles = StyleSheet.create({
   headerSection: {
     marginBottom: 32,
   },
-  headerGradient: {
-    backgroundColor: Colors.primary,
+  headerCard: {
+    backgroundColor: Colors.card,
     borderRadius: 24,
     padding: 32,
     alignItems: 'center',
-    position: 'relative',
-    overflow: 'hidden',
+    shadowColor: Colors.cardShadow,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: `${Colors.primary}10`,
   },
-  cardIconContainer: {
+  headerImageContainer: {
     position: 'relative',
-    marginBottom: 20,
+    marginBottom: 24,
   },
-  cardIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  headerImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: `${Colors.primary}15`,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 3,
+    borderColor: `${Colors.primary}20`,
     zIndex: 2,
   },
-  cardIconRing: {
+  headerImageGlow: {
     position: 'absolute',
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    top: -12,
-    left: -12,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: `${Colors.primary}08`,
+    top: -10,
+    left: -10,
     zIndex: 1,
+  },
+  headerContent: {
+    alignItems: 'center',
+    width: '100%',
   },
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: 'white',
+    color: Colors.text,
     marginBottom: 12,
     textAlign: 'center',
   },
-  headerSubtitle: {
+  headerDescription: {
     fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: Colors.textLight,
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 24,
     paddingHorizontal: 20,
   },
-  benefitsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+  featuresContainer: {
     width: '100%',
+    marginBottom: 24,
   },
-  benefitItem: {
+  featureRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: Colors.background,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: 20,
+    flex: 0.48,
+    borderWidth: 1,
+    borderColor: `${Colors.border}50`,
   },
-  benefitText: {
-    color: 'rgba(255, 255, 255, 0.9)',
+  featureText: {
     fontSize: 14,
     fontWeight: '600',
-    marginLeft: 6,
+    color: Colors.text,
+    marginLeft: 8,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.background,
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: `${Colors.border}50`,
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statNumber: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.primary,
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: Colors.textLight,
+    fontWeight: '500',
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: `${Colors.border}50`,
+    marginHorizontal: 16,
   },
   section: {
     backgroundColor: Colors.card,
