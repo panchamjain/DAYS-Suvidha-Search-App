@@ -7,6 +7,7 @@ import CategoryScreen from './screens/CategoryScreen';
 import MerchantDetailScreen from './screens/MerchantDetailScreen';
 import SearchScreen from './screens/SearchScreen';
 import AboutScreen from './screens/AboutScreen';
+import FormsScreen from './screens/FormsScreen';
 import TemplesScreen from './screens/TemplesScreen';
 import TempleDetailScreen from './screens/TempleDetailScreen';
 import DaysEventsScreen from './screens/DaysEventsScreen';
@@ -23,6 +24,7 @@ type RootStackParamList = {
   MerchantDetail: { merchant: any };
   Search: undefined;
   About: undefined;
+  Forms: undefined;
   Temples: undefined;
   TempleDetail: { temple: any };
   DaysEvents: undefined;
@@ -53,6 +55,7 @@ export default function App() {
           <Stack.Screen name="MerchantDetail" component={MerchantDetailScreen} />
           <Stack.Screen name="Search" component={SearchScreen} />
           <Stack.Screen name="About" component={AboutScreen} />
+          <Stack.Screen name="Forms" component={FormsScreen} />
           <Stack.Screen name="Temples" component={TemplesScreen} />
           <Stack.Screen name="TempleDetail" component={TempleDetailScreen} />
           <Stack.Screen name="DaysEvents" component={DaysEventsScreen} />

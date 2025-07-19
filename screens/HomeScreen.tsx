@@ -149,6 +149,32 @@ const HomeScreen = () => {
               </View>
             </View>
 
+            {/* Forms Section */}
+            <View style={styles.sectionContainer}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>DAYS Forms</Text>
+                <Text style={styles.sectionSubtitle}>Access all available forms and applications</Text>
+              </View>
+              
+              <TouchableOpacity 
+                style={styles.formsBanner}
+                onPress={() => navigation.navigate('Forms' as never)}
+              >
+                <View style={styles.formsContent}>
+                  <View style={styles.formsIcon}>
+                    <MaterialIcons name="description" size={40} color="white" />
+                  </View>
+                  <View style={styles.formsInfo}>
+                    <Text style={styles.formsTitle}>View All Forms</Text>
+                    <Text style={styles.formsSubtitle}>
+                      Complete registration forms, applications, and feedback forms for DAYS services
+                    </Text>
+                  </View>
+                  <MaterialIcons name="arrow-forward" size={24} color="white" />
+                </View>
+              </TouchableOpacity>
+            </View>
+
             {/* Temples Section */}
             <View style={styles.sectionContainer}>
               <View style={styles.sectionHeader}>
@@ -341,6 +367,44 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   templesSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.9)',
+    lineHeight: 18,
+  },
+  formsBanner: {
+    backgroundColor: Colors.secondary,
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: Colors.cardShadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  formsContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  formsIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  formsInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  formsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 6,
+  },
+  formsSubtitle: {
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.9)',
     lineHeight: 18,
